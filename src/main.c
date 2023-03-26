@@ -663,7 +663,7 @@ static void print_cell_data(void)
 		LOG_WRN("No cells were found");
 		return;
 	}
-
+	/*
 	LOG_INF("Current cell:");
 	LOG_INF("\tMCC: %03d", cell_data.current_cell.mcc);
 	LOG_INF("\tMNC: %03d", cell_data.current_cell.mnc);
@@ -675,13 +675,27 @@ static void print_cell_data(void)
 	LOG_INF("\tPhysical cell ID: %d", cell_data.current_cell.phys_cell_id);
 	LOG_INF("\tRSRP: %d", cell_data.current_cell.rsrp);
 	LOG_INF("\tRSRQ: %d", cell_data.current_cell.rsrq);
+	*/
+
+	printk("Current cell:\n");
+	printk("\tMCC: %03d\n", cell_data.current_cell.mcc);
+	printk("\tMNC: %03d\n", cell_data.current_cell.mnc);
+	printk("\tCell ID: %d\n", cell_data.current_cell.id);
+	printk("\tTAC: %d\n", cell_data.current_cell.tac);
+	printk("\tEARFCN: %d\n", cell_data.current_cell.earfcn);
+	printk("\tTiming advance: %d\n", cell_data.current_cell.timing_advance);
+	printk("\tMeasurement time: %lld\n", cell_data.current_cell.measurement_time);
+	printk("\tPhysical cell ID: %d\n", cell_data.current_cell.phys_cell_id);
+	printk("\tRSRP: %d\n", cell_data.current_cell.rsrp);
+	printk("\tRSRQ: %d\n", cell_data.current_cell.rsrq);
 
 	//check if towers are empty and unique
 	char newID[20];
 	sprintf(newID,"%d",cell_data.current_cell.id);
 	char newTA[20];
 	sprintf(newTA,"%d",cell_data.current_cell.timing_advance);
-	
+	if(cell_data.current_cell.timing_advance != 65535)
+	{
 		if((strstr(t1ID, "empty") != NULL) ) //&& (strstr(newTA, "65535") != NULL)
 		{	
 			//strcpy(t1ID,cell_data.current_cell.id);
@@ -718,6 +732,12 @@ static void print_cell_data(void)
 		{
 			printk("Information not recorded!\n");
 		}
+	}
+
+	printk("Currently stored towers:\n");
+	printk("Tower 1: %s\n", t1ID);
+	printk("Tower 2: %s\n", t2ID);
+	printk("Tower 3: %s\n", t3ID);
 
 
 
@@ -789,11 +809,6 @@ static void button_handler(uint32_t button_states, uint32_t has_changed)
 
 		LOG_INF("Button 1 pressed, starting cell measurements");
 		start_cell_measurements();
-
-		printk("Currently stored towers:\n");
-		printk("Tower 1: %s\n", t1ID);
-		printk("Tower 2: %s\n", t2ID);
-		printk("Tower 3: %s\n", t3ID);
 	
 		//readCOPS();
 		//testCOPS();
