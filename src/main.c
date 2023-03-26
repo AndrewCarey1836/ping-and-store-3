@@ -686,8 +686,8 @@ static void print_cell_data(void)
 		{	
 			//strcpy(t1ID,cell_data.current_cell.id);
 			sprintf(t1ID,"%d",cell_data.current_cell.id);
-			AppendString(testTxt, newID, strlen(newID),false);
-			AppendCharacter(testTxt, '\n');
+			//AppendString(testTxt, newID, strlen(newID),false);
+			//AppendCharacter(testTxt, '\n');
 			sprintf(t1MCC,"%03d",cell_data.current_cell.mcc);
 			sprintf(t1MNC,"%03d",cell_data.current_cell.mnc);
 			sprintf(t1TAC,"%d",cell_data.current_cell.tac);
