@@ -686,8 +686,8 @@ static void print_cell_data(void)
 		{	
 			//strcpy(t1ID,cell_data.current_cell.id);
 			sprintf(t1ID,"%d",cell_data.current_cell.id);
-			sprintf(t1MCC,"%d",cell_data.current_cell.mcc);
-			sprintf(t1MNC,"%d",cell_data.current_cell.mnc);
+			sprintf(t1MCC,"%03d",cell_data.current_cell.mcc);
+			sprintf(t1MNC,"%03d",cell_data.current_cell.mnc);
 			sprintf(t1TAC,"%d",cell_data.current_cell.tac);
 			sprintf(t1TA,"%d",cell_data.current_cell.timing_advance);
 		}
@@ -696,8 +696,8 @@ static void print_cell_data(void)
 		{	
 			//strcpy(t2ID,cell_data.current_cell.id);
 			sprintf(t2ID,"%d",cell_data.current_cell.id);
-			sprintf(t2MCC,"%d",cell_data.current_cell.mcc);
-			sprintf(t2MNC,"%d",cell_data.current_cell.mnc);
+			sprintf(t2MCC,"%03d",cell_data.current_cell.mcc);
+			sprintf(t2MNC,"%03d",cell_data.current_cell.mnc);
 			sprintf(t2TAC,"%d",cell_data.current_cell.tac);
 			sprintf(t2TA,"%d",cell_data.current_cell.timing_advance);
 		}
@@ -706,8 +706,8 @@ static void print_cell_data(void)
 		{	
 			//strcpy(t3ID,cell_data.current_cell.id);
 			sprintf(t3ID,"%d",cell_data.current_cell.id);
-			sprintf(t3MCC,"%d",cell_data.current_cell.mcc);
-			sprintf(t3MNC,"%d",cell_data.current_cell.mnc);
+			sprintf(t3MCC,"%03d",cell_data.current_cell.mcc);
+			sprintf(t3MNC,"%03d",cell_data.current_cell.mnc);
 			sprintf(t3TAC,"%d",cell_data.current_cell.tac);
 			sprintf(t3TA,"%d",cell_data.current_cell.timing_advance);
 		}
