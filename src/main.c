@@ -789,6 +789,11 @@ static void button_handler(uint32_t button_states, uint32_t has_changed)
 
 		LOG_INF("Button 1 pressed, starting cell measurements");
 		start_cell_measurements();
+
+		printk("Currently stored towers:\n");
+		printk("Tower 1: %s\n", t1ID);
+		printk("Tower 2: %s\n", t2ID);
+		printk("Tower 3: %s\n", t3ID);
 	
 		//readCOPS();
 		//testCOPS();
@@ -799,7 +804,7 @@ static void button_handler(uint32_t button_states, uint32_t has_changed)
 	if (has_changed & button_states & DK_BTN2_MSK) 
 	{
 		printk("button 2 \n");
-		print_cell_data();
+		//print_cell_data();
 		blinkTimes(5);
 		//AppendString(testTxt, "hello\n", 6, true);
 		//cmd_read();
