@@ -70,6 +70,7 @@ static const struct gpio_dt_spec led2 = GPIO_DT_SPEC_GET(LED1_NODE, gpios);
 #define towerSizeMNC 12
 #define towerSizeTAC 12
 #define towerSizeTA 12
+#define towerSizeCOPS 25
 
 //towers 
 
@@ -79,6 +80,7 @@ char t1MCC[towerSizeMCC];
 char t1MNC[towerSizeMNC];
 char t1TAC[towerSizeTAC];
 char t1TA[towerSizeTA];
+char t1COPS[towerSizeCOPS];
 
 //tower 2
 char t2ID[towerSizeID];
@@ -86,6 +88,7 @@ char t2MCC[towerSizeMCC];
 char t2MNC[towerSizeMNC];
 char t2TAC[towerSizeTAC];
 char t2TA[towerSizeTA];
+char t2COPS[towerSizeCOPS];
 
 //tower 3
 char t3ID[towerSizeID];
@@ -93,9 +96,22 @@ char t3MCC[towerSizeMCC];
 char t3MNC[towerSizeMNC];
 char t3TAC[towerSizeTAC];
 char t3TA[towerSizeTA];
+char t3COPS[towerSizeCOPS];
 
+//char time[towerSizeID];
 
-char time[towerSizeID];
+//list of known COPS
+//a very lazy way of implementing,
+//but i need it to work quit
+
+//AT&T Mobility
+static const char *att_mobility_cops="310410";
+
+//T-Mobile
+static const char *t_mobile_cops = "310260";
+
+//AT&T FirstNet
+static const char *firstnet_cops = "313100";
 
 BUILD_ASSERT(!IS_ENABLED(CONFIG_LTE_AUTO_INIT_AND_CONNECT),
 	"The sample does not support automatic LTE connection establishment");
@@ -458,10 +474,17 @@ void empty(void)
 	strcpy(t1ID, "empty");
 	strcpy(t2ID, "empty");
 	strcpy(t3ID, "empty");
+	strcpy(t1COPS, "empty");
+	strcpy(t2COPS, "empty");
+	strcpy(t3COPS, "empty");
 	printk("Towers emptied!\n");
 
 }
 
+/*
+* Multicell Location
+*
+*/
 
 static void lte_handler(const struct lte_lc_evt *const evt)
 {
@@ -602,6 +625,28 @@ static int lte_connect(void)
 	return 0;
 }
 
+//change COPS
+void changeCOPS(char *opName, int lenOpName)
+{
+	int err;
+    char response[64];
+
+	char cmd[25] = "AT+COPS=1,2,\"";
+
+	//printk("new COPS: %s\n", opName);
+
+	strcat(cmd,opName);
+	strcat(cmd,"\"");
+
+	// err = nrf_modem_at_cmd(response, sizeof(response), "AT+COPS=1,2,\"310410\"");
+    err = nrf_modem_at_cmd(response, sizeof(response), cmd);
+	if (err) 
+	{
+        //error
+    }
+    printk("Modem response:\n%s", response);
+}
+
 static void start_cell_measurements(void)
 {
 	int err;
@@ -663,20 +708,6 @@ static void print_cell_data(void)
 		LOG_WRN("No cells were found");
 		return;
 	}
-	/*
-	LOG_INF("Current cell:");
-	LOG_INF("\tMCC: %03d", cell_data.current_cell.mcc);
-	LOG_INF("\tMNC: %03d", cell_data.current_cell.mnc);
-	LOG_INF("\tCell ID: %d", cell_data.current_cell.id);
-	LOG_INF("\tTAC: %d", cell_data.current_cell.tac);
-	LOG_INF("\tEARFCN: %d", cell_data.current_cell.earfcn);
-	LOG_INF("\tTiming advance: %d", cell_data.current_cell.timing_advance);
-	LOG_INF("\tMeasurement time: %lld", cell_data.current_cell.measurement_time);
-	LOG_INF("\tPhysical cell ID: %d", cell_data.current_cell.phys_cell_id);
-	LOG_INF("\tRSRP: %d", cell_data.current_cell.rsrp);
-	LOG_INF("\tRSRQ: %d", cell_data.current_cell.rsrq);
-	*/
-
 	printk("Current cell:\n");
 	printk("\tMCC: %03d\n", cell_data.current_cell.mcc);
 	printk("\tMNC: %03d\n", cell_data.current_cell.mnc);
@@ -694,6 +725,8 @@ static void print_cell_data(void)
 	sprintf(newID,"%d",cell_data.current_cell.id);
 	char newTA[20];
 	sprintf(newTA,"%d",cell_data.current_cell.timing_advance);
+	
+	//make sure timing advance is a valid number
 	if(cell_data.current_cell.timing_advance != 65535)
 	{
 		if((strstr(t1ID, "empty") != NULL) ) //&& (strstr(newTA, "65535") != NULL)
@@ -706,6 +739,8 @@ static void print_cell_data(void)
 			sprintf(t1MNC,"%03d",cell_data.current_cell.mnc);
 			sprintf(t1TAC,"%d",cell_data.current_cell.tac);
 			sprintf(t1TA,"%d",cell_data.current_cell.timing_advance);
+			strcpy(t1COPS,t1MCC);
+			strcat(t1COPS,t1MNC);
 		}
 
 		else if((strstr(t2ID, "empty") != NULL) && !(strstr(t1ID, newID) != NULL)) // && !(strstr(newTA, "65535") != NULL)
@@ -716,6 +751,8 @@ static void print_cell_data(void)
 			sprintf(t2MNC,"%03d",cell_data.current_cell.mnc);
 			sprintf(t2TAC,"%d",cell_data.current_cell.tac);
 			sprintf(t2TA,"%d",cell_data.current_cell.timing_advance);
+			strcpy(t2COPS,t2MCC);
+			strcat(t2COPS,t2MNC);
 		}
 
 		else if((strstr(t3ID, "empty") != NULL) && !(strstr(t2ID, newID) != NULL) && !(strstr(t1ID, newID) != NULL) ) //&& !(strstr(newTA, "65535") != NULL)
@@ -726,6 +763,8 @@ static void print_cell_data(void)
 			sprintf(t3MNC,"%03d",cell_data.current_cell.mnc);
 			sprintf(t3TAC,"%d",cell_data.current_cell.tac);
 			sprintf(t3TA,"%d",cell_data.current_cell.timing_advance);
+			strcpy(t3COPS,t3MCC);
+			strcat(t3COPS,t3MNC);
 		}
 
 		else
@@ -739,49 +778,65 @@ static void print_cell_data(void)
 	printk("Tower 2: %s\n", t2ID);
 	printk("Tower 3: %s\n", t3ID);
 
+	printk("Tower 1 COPS: %s\n", t1COPS);
+	printk("Tower 2 COPS: %s\n", t2COPS);
+	printk("Tower 3 COPS: %s\n", t3COPS);
 
+	//set the value of COPS
 
-/*
-	if (cell_data.ncells_count == 0) {
-		LOG_INF("*** No neighbor cells found ***");
-		return;
+	//check if 1st tower is t-mobile
+	if(strstr(t1COPS, t_mobile_cops) != NULL)
+	{
+		//check if 2nd tower is at&t
+		if(strstr(t2COPS, att_mobility_cops) != NULL)
+		{
+			//run cops firstnet
+			changeCOPS(firstnet_cops, strlen(firstnet_cops));
+		}
+		else
+		{
+			//run at&t
+			changeCOPS(att_mobility_cops, strlen(att_mobility_cops));
+		}
 	}
 
-	for (size_t i = 0; i < cell_data.ncells_count; i++) {
-		LOG_INF("Neighbor cell %d", i + 1);
-		LOG_INF("\tEARFCN: %d", cell_data.neighbor_cells[i].earfcn);
-		LOG_INF("\tTime difference: %d", cell_data.neighbor_cells[i].time_diff);
-		LOG_INF("\tPhysical cell ID: %d", cell_data.neighbor_cells[i].phys_cell_id);
-		LOG_INF("\tRSRP: %d", cell_data.neighbor_cells[i].rsrp);
-		LOG_INF("\tRSRQ: %d", cell_data.neighbor_cells[i].rsrq);
+	//check if first tower is at&t
+	else if(strstr(t1COPS, att_mobility_cops) != NULL)
+	{
+		//check if 2nd tower is t-mobile
+		if(strstr(t2COPS, t_mobile_cops) != NULL)
+		{
+			//run cops firstnet
+			changeCOPS(firstnet_cops, strlen(firstnet_cops));
+		}
+		else
+		{
+			//run t-mobile
+			changeCOPS(t_mobile_cops, strlen(t_mobile_cops));
+		}
 	}
-*/
+
+	//check if first tower is firstnet
+	else if(strstr(t1COPS, firstnet_cops) != NULL)
+	{
+		//check if 2nd tower is t-mobile
+		if(strstr(t2COPS, t_mobile_cops) != NULL)
+		{
+			//run cops firstnet
+			changeCOPS(att_mobility_cops, strlen(att_mobility_cops));
+		}
+		else
+		{
+			//run at&t
+			changeCOPS(t_mobile_cops, strlen(t_mobile_cops));
+		}
+	}
+	else
+	{
+		changeCOPS(t_mobile_cops, strlen(t_mobile_cops));
+	}
 }
 
-/*
-static void request_location(enum multicell_service service, const char *service_str)
-{
-	int err;
-	struct multicell_location_params params = { 0 };
-	struct multicell_location location;
-
-	LOG_INF("Sending location request for %s ...", service_str);
-
-	params.service = service;
-	params.cell_data = &cell_data;
-	params.timeout = SYS_FOREVER_MS;
-	err = multicell_location_get(&params, &location);
-	if (err) {
-		LOG_ERR("Failed to acquire location, error: %d", err);
-		return;
-	}
-
-	LOG_INF("Location obtained from %s: ", service_str);
-	LOG_INF("\tLatitude: %f", location.latitude);
-	LOG_INF("\tLongitude: %f", location.longitude);
-	LOG_INF("\tAccuracy: %.0f", location.accuracy);
-}
-*/
 
 /*****
  * button
@@ -886,6 +941,7 @@ static void button_handler(uint32_t button_states, uint32_t has_changed)
 		AppendCharacter(testTxt,'\n');
 		AppendString(testTxt, t3TA, strlen(t3TA), false);
 		AppendCharacter(testTxt,'\n');
+		
 		//AppendString(testTxt, time, strlen(time), false);
 		AppendString(testTxt, separator, strlen(separator), false);
 		
@@ -907,6 +963,11 @@ void main(void)
 	//initialize global character arrays to contain the word empty
 	empty();
 	blinkTimes(3);
+
+	//set the tower cops
+	strcpy(t1COPS, "empty");
+	strcpy(t2COPS, "empty");
+	strcpy(t3COPS, "empty");
 	
 	int err;
 
