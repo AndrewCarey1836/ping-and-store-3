@@ -833,22 +833,37 @@ static void button_handler(uint32_t button_states, uint32_t has_changed)
 		AppendString(testTxt, separator, strlen(separator), false);
 		//tower 1
 		AppendString(testTxt, t1ID, strlen(t1ID), false);
+		AppendCharacter(testTxt,'\n');
 		AppendString(testTxt, t1MCC, strlen(t1MCC), false);
+		AppendCharacter(testTxt,'\n');
 		AppendString(testTxt, t1MNC, strlen(t1MNC), false);
+		AppendCharacter(testTxt,'\n');
 		AppendString(testTxt, t1TAC, strlen(t1TAC), false);
+		AppendCharacter(testTxt,'\n');
 		AppendString(testTxt, t1TA, strlen(t1TA), false);
+		AppendCharacter(testTxt,'\n');
 		//tower 2
 		AppendString(testTxt, t2ID, strlen(t2ID), false);
+		AppendCharacter(testTxt,'\n');
 		AppendString(testTxt, t2MCC, strlen(t2MCC), false);
+		AppendCharacter(testTxt,'\n');
 		AppendString(testTxt, t2MNC, strlen(t2MNC), false);
+		AppendCharacter(testTxt,'\n');
 		AppendString(testTxt, t2TAC, strlen(t2TAC), false);
+		AppendCharacter(testTxt,'\n');
 		AppendString(testTxt, t2TA, strlen(t2TA), false);
+		AppendCharacter(testTxt,'\n');
 		//tower 3
 		AppendString(testTxt, t3ID, strlen(t3ID), false);
+		AppendCharacter(testTxt,'\n');
 		AppendString(testTxt, t3MCC, strlen(t3MCC), false);
+		AppendCharacter(testTxt,'\n');
 		AppendString(testTxt, t3MNC, strlen(t3MNC), false);
+		AppendCharacter(testTxt,'\n');
 		AppendString(testTxt, t3TAC, strlen(t3TAC), false);
+		AppendCharacter(testTxt,'\n');
 		AppendString(testTxt, t3TA, strlen(t3TA), false);
+		AppendCharacter(testTxt,'\n');
 		//AppendString(testTxt, time, strlen(time), false);
 		AppendString(testTxt, separator, strlen(separator), false);
 		
