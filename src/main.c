@@ -682,17 +682,19 @@ static void print_cell_data(void)
 	char newTA[20];
 	sprintf(newTA,"%d",cell_data.current_cell.timing_advance);
 	
-		if((strstr(t1ID, "empty") != NULL) && !(strstr(newTA, "65535") != NULL))
+		if((strstr(t1ID, "empty") != NULL) ) //&& (strstr(newTA, "65535") != NULL)
 		{	
 			//strcpy(t1ID,cell_data.current_cell.id);
 			sprintf(t1ID,"%d",cell_data.current_cell.id);
+			AppendString(testTxt, newID, strlen(newID),false);
+			AppendCharacter(testTxt, '\n');
 			sprintf(t1MCC,"%03d",cell_data.current_cell.mcc);
 			sprintf(t1MNC,"%03d",cell_data.current_cell.mnc);
 			sprintf(t1TAC,"%d",cell_data.current_cell.tac);
 			sprintf(t1TA,"%d",cell_data.current_cell.timing_advance);
 		}
 
-		else if((strstr(t2ID, "empty") != NULL) && !(strstr(t1ID, newID) != NULL) && !(strstr(newTA, "65535") != NULL))
+		else if((strstr(t2ID, "empty") != NULL) && !(strstr(t1ID, newID) != NULL)) // && !(strstr(newTA, "65535") != NULL)
 		{	
 			//strcpy(t2ID,cell_data.current_cell.id);
 			sprintf(t2ID,"%d",cell_data.current_cell.id);
@@ -702,7 +704,7 @@ static void print_cell_data(void)
 			sprintf(t2TA,"%d",cell_data.current_cell.timing_advance);
 		}
 
-		else if((strstr(t3ID, "empty") != NULL) && !(strstr(t2ID, newID) != NULL) && !(strstr(t1ID, newID) != NULL) && !(strstr(newTA, "65535") != NULL))
+		else if((strstr(t3ID, "empty") != NULL) && !(strstr(t2ID, newID) != NULL) && !(strstr(t1ID, newID) != NULL) ) //&& !(strstr(newTA, "65535") != NULL)
 		{	
 			//strcpy(t3ID,cell_data.current_cell.id);
 			sprintf(t3ID,"%d",cell_data.current_cell.id);
