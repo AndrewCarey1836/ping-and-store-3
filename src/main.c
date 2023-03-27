@@ -13,6 +13,7 @@
 #include <modem/lte_lc.h>
 #include <dk_buttons_and_leds.h>
 #include <net/multicell_location.h>
+//#include <date_time.h>
 
 #include <zephyr/logging/log.h>
 
@@ -98,7 +99,8 @@ char t3TAC[towerSizeTAC];
 char t3TA[towerSizeTA];
 char t3COPS[towerSizeCOPS];
 
-//char time[towerSizeID];
+#define timeSize 50
+char time[timeSize];
 
 //list of known COPS
 //a very lazy way of implementing,
@@ -112,6 +114,12 @@ static const char *t_mobile_cops = "310260";
 
 //AT&T FirstNet
 static const char *firstnet_cops = "313100";
+
+//Verizon
+//static const char *verizon = "311480";
+
+//other
+static const char *verizon = "311490";
 
 BUILD_ASSERT(!IS_ENABLED(CONFIG_LTE_AUTO_INIT_AND_CONNECT),
 	"The sample does not support automatic LTE connection establishment");
@@ -719,12 +727,18 @@ static void print_cell_data(void)
 	printk("\tPhysical cell ID: %d\n", cell_data.current_cell.phys_cell_id);
 	printk("\tRSRP: %d\n", cell_data.current_cell.rsrp);
 	printk("\tRSRQ: %d\n", cell_data.current_cell.rsrq);
+	
 
 	//check if towers are empty and unique
 	char newID[20];
 	sprintf(newID,"%d",cell_data.current_cell.id);
 	char newTA[20];
 	sprintf(newTA,"%d",cell_data.current_cell.timing_advance);
+	char newCOPS[25];
+	sprintf(newCOPS,"%03d",cell_data.current_cell.mcc);
+	char newMNC[13];
+	sprintf(newMNC,"%03d",cell_data.current_cell.mnc);
+	strcat(newCOPS,newMNC);
 	
 	//make sure timing advance is a valid number
 	if(cell_data.current_cell.timing_advance != 65535)
@@ -743,7 +757,8 @@ static void print_cell_data(void)
 			strcat(t1COPS,t1MNC);
 		}
 
-		else if((strstr(t2ID, "empty") != NULL) && !(strstr(t1ID, newID) != NULL)) // && !(strstr(newTA, "65535") != NULL)
+		//else if((strstr(t2ID, "empty") != NULL) && (!(strstr(t1ID, newID) != NULL) || !(strstr(t1COPS, newCOPS) != NULL) )) // && !(strstr(newTA, "65535") != NULL)
+		else if((strstr(t2ID, "empty") != NULL) && (!(strstr(t1ID, newID) != NULL)))
 		{	
 			//strcpy(t2ID,cell_data.current_cell.id);
 			sprintf(t2ID,"%d",cell_data.current_cell.id);
@@ -755,7 +770,8 @@ static void print_cell_data(void)
 			strcat(t2COPS,t2MNC);
 		}
 
-		else if((strstr(t3ID, "empty") != NULL) && !(strstr(t2ID, newID) != NULL) && !(strstr(t1ID, newID) != NULL) ) //&& !(strstr(newTA, "65535") != NULL)
+		//else if((strstr(t3ID, "empty") != NULL) && (!(strstr(t2ID, newID) != NULL) || !(strstr(t2COPS, newCOPS) != NULL) ) && (!(strstr(t1ID, newID) != NULL) || !(strstr(t1COPS, newCOPS) != NULL) ) ) //&& !(strstr(newTA, "65535") != NULL)
+		else if((strstr(t3ID, "empty") != NULL) && (!(strstr(t2ID, newID) != NULL)) && (!(strstr(t1ID, newID) != NULL)))
 		{	
 			//strcpy(t3ID,cell_data.current_cell.id);
 			sprintf(t3ID,"%d",cell_data.current_cell.id);
@@ -791,7 +807,8 @@ static void print_cell_data(void)
 		if(strstr(t2COPS, att_mobility_cops) != NULL)
 		{
 			//run cops firstnet
-			changeCOPS(firstnet_cops, strlen(firstnet_cops));
+			//changeCOPS(firstnet_cops, strlen(firstnet_cops));
+			changeCOPS(verizon, strlen(verizon));
 		}
 		else
 		{
@@ -807,7 +824,8 @@ static void print_cell_data(void)
 		if(strstr(t2COPS, t_mobile_cops) != NULL)
 		{
 			//run cops firstnet
-			changeCOPS(firstnet_cops, strlen(firstnet_cops));
+			//changeCOPS(firstnet_cops, strlen(firstnet_cops));
+			changeCOPS(verizon, strlen(verizon));
 		}
 		else
 		{
@@ -817,7 +835,8 @@ static void print_cell_data(void)
 	}
 
 	//check if first tower is firstnet
-	else if(strstr(t1COPS, firstnet_cops) != NULL)
+	//else if(strstr(t1COPS, firstnet_cops) != NULL)
+	else if(strstr(t1COPS, verizon) != NULL)
 	{
 		//check if 2nd tower is t-mobile
 		if(strstr(t2COPS, t_mobile_cops) != NULL)
@@ -835,6 +854,47 @@ static void print_cell_data(void)
 	{
 		changeCOPS(t_mobile_cops, strlen(t_mobile_cops));
 	}
+}
+
+void getTime(void)
+{
+	int err;
+    char response[64];
+
+	err = nrf_modem_at_cmd(response, sizeof(response), "AT+CCLK?");
+    if (err) 
+	{
+        //error
+    }
+
+	int dataSize = 64;
+	char data[dataSize];
+	strcpy(data,response);
+	int data_length = strlen(data);
+
+	int loop;
+		for(loop = 0; loop < data_length; loop++)
+		{
+		
+			//only want A-Z, a-z, 0-9, and newline characters
+			if( (data[loop] >= 'a' && data[loop] <= 'z') 
+			||  (data[loop] >= 'A' && data[loop] <= 'Z') 
+			||  (data[loop] >= '0' && data[loop] <= '9')
+			||  (data[loop] == '\n') ||  (data[loop] == '/') 
+			||  (data[loop] == ':') || (data[loop] == '+'))
+			{
+				//printk("%c", data[loop]);
+			}
+			//set all other characters to underscore
+			else
+			{
+				data[loop] = '_';
+			}
+		}
+
+		strcpy(time,data);	
+
+    //printk("Modem response:\n%s", response);
 }
 
 
@@ -876,6 +936,14 @@ static void button_handler(uint32_t button_states, uint32_t has_changed)
 		printk("button 2 \n");
 		//print_cell_data();
 		blinkTimes(5);
+
+
+		
+		//set and get time
+		//int64_t unix_time_ms;
+		//date_time_update();
+		//int err= date_time_now(&unix_time_ms);
+		//printk("Date_time: %i %i\n", (uint32_t)(unix_time_ms/1000000), (uint32_t)(unix_time_ms%1000000));
 		//AppendString(testTxt, "hello\n", 6, true);
 		//cmd_read();
 		//AppendString(testTxt, t1, strlen(t1), true);
@@ -904,7 +972,7 @@ static void button_handler(uint32_t button_states, uint32_t has_changed)
 			strcpy(t3ID, "empty\n");
 		}
 
-		//getTime();
+		getTime();
 
 
 		AppendString(testTxt, separator, strlen(separator), false);
@@ -942,7 +1010,7 @@ static void button_handler(uint32_t button_states, uint32_t has_changed)
 		AppendString(testTxt, t3TA, strlen(t3TA), false);
 		AppendCharacter(testTxt,'\n');
 		
-		//AppendString(testTxt, time, strlen(time), false);
+		AppendString(testTxt, time, strlen(time), false);
 		AppendString(testTxt, separator, strlen(separator), false);
 		
 		empty();
