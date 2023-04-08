@@ -118,7 +118,7 @@ static const struct gpio_dt_spec Output_Other = GPIO_DT_SPEC_GET(Output_Other_Pi
 #define towerSizeTAC 12
 #define towerSizeTA 12
 #define towerSizeCOPS 25
-#define towerSizeSNR 200
+#define towerSizeSNR 300
 
 //towers
 
@@ -747,6 +747,9 @@ void empty(void)
 	strcpy(t1COPS, "empty");
 	strcpy(t2COPS, "empty");
 	strcpy(t3COPS, "empty");
+	strcpy(t1SNR,"empty");
+	strcpy(t2SNR,"empty");
+	strcpy(t3SNR,"empty");
 	printk("Towers emptied!\n");
 
 }
@@ -1090,7 +1093,7 @@ static void print_cell_data(void)
 			strcat(t1COPS,t1MNC);
 
 			//get the connection value
-			getSNR(1);
+			//getSNR(1);
 		}
 
 		//else if((strstr(t2ID, "empty") != NULL) && (!(strstr(t1ID, newID) != NULL) || !(strstr(t1COPS, newCOPS) != NULL) )) // && !(strstr(newTA, "65535") != NULL)
@@ -1107,7 +1110,7 @@ static void print_cell_data(void)
 			strcpy(t2COPS,t2MCC);
 			strcat(t2COPS,t2MNC);
 
-			getSNR(2);
+			//getSNR(2);
 		}
 
 		//else if((strstr(t3ID, "empty") != NULL) && (!(strstr(t2ID, newID) != NULL) || !(strstr(t2COPS, newCOPS) != NULL) ) && (!(strstr(t1ID, newID) != NULL) || !(strstr(t1COPS, newCOPS) != NULL) ) ) //&& !(strstr(newTA, "65535") != NULL)
@@ -1124,7 +1127,7 @@ static void print_cell_data(void)
 			strcpy(t3COPS,t3MCC);
 			strcat(t3COPS,t3MNC);
 
-			getSNR(3);
+			//getSNR(3);
 		}
 
 		else
@@ -1410,6 +1413,8 @@ static void button_handler(uint32_t button_states, uint32_t has_changed)
 		//printk("Unused!\n");
 		printk("button 3 \n");
 
+		/*
+
 		printk("Tower 1: %s\n", t1ID);
 		printk("Tower 2: %s\n", t2ID);
 		printk("Tower 3: %s\n", t3ID);
@@ -1491,6 +1496,7 @@ static void button_handler(uint32_t button_states, uint32_t has_changed)
 		empty();
 
 		power();
+		*/
 
 	}
 
