@@ -71,45 +71,13 @@ static const char *derpTxt = "/SD:/derp.txt";
 static const char *separator = "*******************************************\n";
 
 /***
- * set up for communication with pico
+ * set up for blink
 */
 #define SLEEP_TIME_MS   100
-#define TOGGLE_TIME 50
-#define HIGH 1
-#define LOW 0
-
-/**
- * Output 
- */
-#define Tower_Read_Success_Pin DT_ALIAS(led0)
-#define Tower_Read_Fail_Pin DT_ALIAS(led1)
-#define Tower_Buffer_Full_Pin DT_ALIAS(led2)
-#define Tower_Connected_Pin DT_ALIAS(led3)
-static const struct gpio_dt_spec Tower_Read_Success = GPIO_DT_SPEC_GET(Tower_Read_Success_Pin, gpios);
-static const struct gpio_dt_spec Tower_Read_Fail = GPIO_DT_SPEC_GET(Tower_Read_Fail_Pin, gpios);
-static const struct gpio_dt_spec Tower_Buffer_Full = GPIO_DT_SPEC_GET(Tower_Buffer_Full_Pin, gpios);
-static const struct gpio_dt_spec Tower_Connected = GPIO_DT_SPEC_GET(Tower_Connected_Pin, gpios);
-
-/****
- * Input
-*/
-/*
-#define Power_Button_Pin DT_ALIAS(sw0)
-#define Collect_Towers_Pin DT_ALIAS(sw1)
-#define Store_Towers_Pin DT_ALIAS(sw2)
-#define Output_Other_Pin DT_ALIAS(sw3)
-*/
-//#define Power_Button BIT(DK_BTN1)
-//#define Power_Button BIT(DK_BTN4)
-#define Collect_Towers BIT(DK_BTN1)
-#define Store_Towers BIT(DK_BTN2)
-#define Output_Other BIT(DK_BTN3)
-/*
-static const struct gpio_dt_spec Power_Button = GPIO_DT_SPEC_GET(Power_Button_Pin, gpios);
-static const struct gpio_dt_spec Collect_Towers = GPIO_DT_SPEC_GET(Collect_Towers_Pin, gpios);
-static const struct gpio_dt_spec Store_Towers = GPIO_DT_SPEC_GET(Store_Towers_Pin, gpios);
-static const struct gpio_dt_spec Output_Other = GPIO_DT_SPEC_GET(Output_Other_Pin, gpios);
-*/
+#define LED0_NODE DT_ALIAS(led0)
+#define LED1_NODE DT_ALIAS(led1)
+static const struct gpio_dt_spec led = GPIO_DT_SPEC_GET(LED0_NODE, gpios);
+static const struct gpio_dt_spec led2 = GPIO_DT_SPEC_GET(LED1_NODE, gpios);
 
 //towers as a global string
 //#define towerSize 200
@@ -118,9 +86,9 @@ static const struct gpio_dt_spec Output_Other = GPIO_DT_SPEC_GET(Output_Other_Pi
 #define towerSizeTAC 12
 #define towerSizeTA 12
 #define towerSizeCOPS 25
-#define towerSizeSNR 300
+#define towerSizeSNR 200
 
-//towers
+//towers 
 
 //tower 1
 char t1ID[towerSizeID];
@@ -208,16 +176,15 @@ static struct lte_lc_cells_info cell_data = {
  * 
  * 
 */
-/*
 void blink(void)
 {
 	int ret;
 
-	if (!device_is_ready(led0.port)) {
+	if (!device_is_ready(led.port)) {
 		return;
 	}
 
-	ret = gpio_pin_configure_dt(&led0, GPIO_OUTPUT_ACTIVE);
+	ret = gpio_pin_configure_dt(&led, GPIO_OUTPUT_ACTIVE);
 	if (ret < 0) {
 		return;
 	}
@@ -260,118 +227,6 @@ void blinkTimes(int times)
 		}
 		k_msleep(SLEEP_TIME_MS);
 	}
-}
-*/
-
-/****
- * send signals to the raspberry pi pico
-*/
-
-void Tower_Read_Success_Change(void)
-{
-	int ret;
-
-	if (!device_is_ready(Tower_Read_Success.port)) 
-	{
-		printk("Tower Read Success Button not ready!\n");
-		return;
-	}
-
-	ret = gpio_pin_configure_dt(&Tower_Read_Success, GPIO_OUTPUT_ACTIVE);
-	if (ret < 0) 
-	{
-		printk("Tower Read Success Button not configured!\n");
-		return;
-	}
-
-	//ret = gpio_pin_toggle_dt(&Tower_Read_Success);
-	//ret = gpio_pin_toggle_dt(&Tower_Read_Success);
-	ret  = gpio_pin_set_dt(&Tower_Read_Success, HIGH);
-	k_msleep(TOGGLE_TIME);
-	ret  = gpio_pin_set_dt(&Tower_Read_Success, LOW);
-	
-}
-
-void Tower_Read_Fail_Change(void)
-{
-	int ret;
-
-	if (!device_is_ready(Tower_Read_Fail.port)) 
-	{
-		printk("Tower Read Fail Button not ready!\n");
-		return;
-	}
-
-	ret = gpio_pin_configure_dt(&Tower_Read_Fail, GPIO_OUTPUT_ACTIVE);
-	if (ret < 0) 
-	{
-		printk("Tower Read Fail Button not configured!\n");
-		return;
-	}
-	/*
-	ret = gpio_pin_toggle_dt(&Tower_Read_Fail);
-	k_msleep(SLEEP_TIME_MS);
-	ret = gpio_pin_toggle_dt(&Tower_Read_Fail);
-	*/
-	ret  = gpio_pin_set_dt(&Tower_Read_Fail, HIGH);
-	k_msleep(TOGGLE_TIME);
-	ret  = gpio_pin_set_dt(&Tower_Read_Fail, LOW);
-	
-}
-
-void Tower_Buffer_Full_Change(void)
-{
-	int ret;
-
-	if (!device_is_ready(Tower_Buffer_Full.port)) 
-	{
-		printk("Tower Buffer Button not ready!\n");
-		return;
-	}
-
-	ret = gpio_pin_configure_dt(&Tower_Buffer_Full, GPIO_OUTPUT_ACTIVE);
-	if (ret < 0) 
-	{
-		printk("Tower Buffer Button not configured!\n");
-		return;
-	}
-	/*
-	ret = gpio_pin_toggle_dt(&Tower_Buffer_Full);
-	k_msleep(SLEEP_TIME_MS);
-	ret = gpio_pin_toggle_dt(&Tower_Buffer_Full);
-	*/
-	ret  = gpio_pin_set_dt(&Tower_Buffer_Full, HIGH);
-	k_msleep(TOGGLE_TIME);
-	ret  = gpio_pin_set_dt(&Tower_Buffer_Full, LOW);
-	
-}
-
-void Tower_Connected_Change(void)
-{
-	int ret;
-
-	if (!device_is_ready(Tower_Connected.port)) 
-	{
-		printk("Tower Connected Button not ready!\n");
-		return;
-	}
-
-	ret = gpio_pin_configure_dt(&Tower_Connected, GPIO_OUTPUT_ACTIVE);
-	if (ret < 0) 
-	{
-		printk("Tower Connected Button not configured!\n");
-		return;
-	}
-
-	/*
-	ret = gpio_pin_toggle_dt(&Tower_Connected);
-	k_msleep(SLEEP_TIME_MS);
-	ret = gpio_pin_toggle_dt(&Tower_Connected);
-	*/
-	ret  = gpio_pin_set_dt(&Tower_Connected, HIGH);
-	k_msleep(TOGGLE_TIME);
-	ret  = gpio_pin_set_dt(&Tower_Connected, LOW);
-	
 }
 
 /*****
@@ -416,23 +271,11 @@ void power(void)
 		printk("Retained data not supported\n");
 	}
 
-	//NEED TO FIX THIS SWITCH!!!!!!
-	
-	nrf_gpio_cfg_input(NRF_DT_GPIOS_TO_PSEL(DT_ALIAS(sw3), gpios),
+	nrf_gpio_cfg_input(NRF_DT_GPIOS_TO_PSEL(DT_ALIAS(sw0), gpios),
 			   NRF_GPIO_PIN_PULLUP);
-	nrf_gpio_cfg_sense_set(NRF_DT_GPIOS_TO_PSEL(DT_ALIAS(sw3), gpios),
+	nrf_gpio_cfg_sense_set(NRF_DT_GPIOS_TO_PSEL(DT_ALIAS(sw0), gpios),
 			       NRF_GPIO_PIN_SENSE_LOW);
-	
-	/*
-	nrf_gpio_cfg_input(NRF_DT_GPIOS_TO_PSEL(Power_Button, gpios),
-			   NRF_GPIO_PIN_PULLUP);
-	nrf_gpio_cfg_sense_set(NRF_DT_GPIOS_TO_PSEL(Power_Button, gpios),
-			       NRF_GPIO_PIN_SENSE_LOW); 
-	*/	
-	/*
-	nrf_gpio_cfg_input(Power_Button, NRF_GPIO_PIN_PULLUP);
-	nrf_gpio_cfg_sense_set(Power_Button, NRF_GPIO_PIN_SENSE_LOW);
-	*/		   
+
 	printk("Entering system off; press BUTTON1 to restart\n");
 
 	if (IS_ENABLED(CONFIG_APP_RETENTION)) {
@@ -747,9 +590,6 @@ void empty(void)
 	strcpy(t1COPS, "empty");
 	strcpy(t2COPS, "empty");
 	strcpy(t3COPS, "empty");
-	strcpy(t1SNR,"empty");
-	strcpy(t2SNR,"empty");
-	strcpy(t3SNR,"empty");
 	printk("Towers emptied!\n");
 
 }
@@ -771,8 +611,6 @@ static void lte_handler(const struct lte_lc_evt *const evt)
 		LOG_INF("Network registration status: %s",
 			evt->nw_reg_status == LTE_LC_NW_REG_REGISTERED_HOME ?
 			"Connected - home network" : "Connected - roaming");
-		//Set tower connected pin high
-		//Tower_Connected_Change();
 		k_sem_give(&lte_connected);
 		break;
 	case LTE_LC_EVT_PSM_UPDATE:
@@ -858,8 +696,6 @@ static void lte_handler(const struct lte_lc_evt *const evt)
 	default:
 		break;
 	}
-
-	
 }
 
 static int lte_connect(void)
@@ -1046,8 +882,6 @@ static void print_cell_data(void)
 {
 	if (cell_data.current_cell.id == LTE_LC_CELL_EUTRAN_ID_INVALID) {
 		LOG_WRN("No cells were found");
-		//Set tower read fail pin high
-		Tower_Read_Fail_Change();
 		return;
 	}
 	printk("Current cell:\n");
@@ -1093,7 +927,7 @@ static void print_cell_data(void)
 			strcat(t1COPS,t1MNC);
 
 			//get the connection value
-			//getSNR(1);
+			getSNR(1);
 		}
 
 		//else if((strstr(t2ID, "empty") != NULL) && (!(strstr(t1ID, newID) != NULL) || !(strstr(t1COPS, newCOPS) != NULL) )) // && !(strstr(newTA, "65535") != NULL)
@@ -1110,7 +944,7 @@ static void print_cell_data(void)
 			strcpy(t2COPS,t2MCC);
 			strcat(t2COPS,t2MNC);
 
-			//getSNR(2);
+			getSNR(2);
 		}
 
 		//else if((strstr(t3ID, "empty") != NULL) && (!(strstr(t2ID, newID) != NULL) || !(strstr(t2COPS, newCOPS) != NULL) ) && (!(strstr(t1ID, newID) != NULL) || !(strstr(t1COPS, newCOPS) != NULL) ) ) //&& !(strstr(newTA, "65535") != NULL)
@@ -1127,22 +961,13 @@ static void print_cell_data(void)
 			strcpy(t3COPS,t3MCC);
 			strcat(t3COPS,t3MNC);
 
-			//getSNR(3);
+			getSNR(3);
 		}
 
 		else
 		{
 			printk("Information not recorded!\n");
-			//Set tower read fail pin high
-			Tower_Read_Fail_Change();
 		}
-	}
-
-	else
-	{
-		printk("Invalid timing advance!\n");
-		//Set tower read fail pin high
-		Tower_Read_Fail_Change();
 	}
 
 	
@@ -1155,12 +980,6 @@ static void print_cell_data(void)
 	printk("Tower 1 COPS: %s\n", t1COPS);
 	printk("Tower 2 COPS: %s\n", t2COPS);
 	printk("Tower 3 COPS: %s\n", t3COPS);
-
-	//set the tower buffer to full
-	if(!(strstr(t1ID, "empty") != NULL) && !(strstr(t2ID, "empty") != NULL) && !(strstr(t3ID, "empty") != NULL))
-	{
-		Tower_Buffer_Full_Change();
-	}
 
 	
 
@@ -1277,19 +1096,16 @@ static void button_handler(uint32_t button_states, uint32_t has_changed)
 {
 	//this runs if the first button on the dev kit is pressed
 	//typically used for querying and printing values
-	//if (has_changed & button_states & DK_BTN1_MSK) 
-	if (has_changed & button_states & Collect_Towers) 
+	if (has_changed & button_states & DK_BTN1_MSK) 
 	{
 		printk("button 1 \n");
-		//blinkTimes(5);
+		blinkTimes(5);
 		lsdir(disk_mount_pt);
 		//cfun_q();
 		
 		if (!atomic_get(&connected)) 
 		{
 			LOG_INF("Ignoring button press, not connected to network");
-			//Set tower read fail pin high
-			Tower_Read_Fail_Change();
 			return;
 		}
 
@@ -1303,11 +1119,10 @@ static void button_handler(uint32_t button_states, uint32_t has_changed)
 	//this runs if the second button on the dev kit is pressed
 	//stores collected towers to disk
 	if (has_changed & button_states & DK_BTN2_MSK) 
-	//if (has_changed & button_states & Store_Towers)
 	{
 		printk("button 2 \n");
 		//print_cell_data();
-		//blinkTimes(5);
+		blinkTimes(5);
 
 
 		
@@ -1404,118 +1219,13 @@ static void button_handler(uint32_t button_states, uint32_t has_changed)
 		AppendString(testTxt, separator, strlen(separator), false);
 		
 		empty();
-
-		power();
 	}
-
-	if (has_changed & button_states & Output_Other) 
-	{
-		//printk("Unused!\n");
-		printk("button 3 \n");
-
-		/*
-
-		printk("Tower 1: %s\n", t1ID);
-		printk("Tower 2: %s\n", t2ID);
-		printk("Tower 3: %s\n", t3ID);
-
-		if((strcmp(t1ID, "empty") == 0))
-		{
-			strcpy(t1ID, "empty\n");
-		}
-
-		if((strcmp(t2ID, "empty") == 0))
-		{
-			strcpy(t2ID, "empty\n");
-		}
-
-		if((strcmp(t3ID, "empty") == 0))
-		{
-			strcpy(t3ID, "empty\n");
-		}
-
-		getTime();
-
-
-		AppendString(testTxt, separator, strlen(separator), false);
-		//tower 1
-		AppendString(testTxt, t1ID, strlen(t1ID), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t1MCC, strlen(t1MCC), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t1MNC, strlen(t1MNC), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t1TAC, strlen(t1TAC), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t1TA, strlen(t1TA), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t1RSRP, strlen(t1RSRP), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t1RSRQ, strlen(t1RSRQ), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t1SNR, strlen(t1SNR), false);
-		AppendCharacter(testTxt,'\n');
-		//tower 2
-		AppendString(testTxt, t2ID, strlen(t2ID), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t2MCC, strlen(t2MCC), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t2MNC, strlen(t2MNC), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t2TAC, strlen(t2TAC), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t2TA, strlen(t2TA), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t2RSRP, strlen(t2RSRP), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t2RSRQ, strlen(t2RSRQ), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t2SNR, strlen(t2SNR), false);
-		AppendCharacter(testTxt,'\n');
-		//tower 3
-		AppendString(testTxt, t3ID, strlen(t3ID), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t3MCC, strlen(t3MCC), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t3MNC, strlen(t3MNC), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t3TAC, strlen(t3TAC), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t3TA, strlen(t3TA), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t3RSRP, strlen(t3RSRP), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t3RSRQ, strlen(t3RSRQ), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t3SNR, strlen(t3SNR), false);
-		AppendCharacter(testTxt,'\n');
-		
-		AppendString(testTxt, time, strlen(time), false);
-		AppendString(testTxt, separator, strlen(separator), false);
-		
-		empty();
-
-		power();
-		*/
-
-	}
-
-	//This will be the power button
-	//if (has_changed & button_states & Power_Button)
-	/*
-	if (has_changed & button_states & DK_BTN3_MSK) 
-	{
-		power();
-		printk("power!\n");
-	}
-	*/
-	
 }
 
 void button1Action(void)
 {
 	printk("button 1 \n");
-	//blinkTimes(5);
+	blinkTimes(5);
 	lsdir(disk_mount_pt);
 	//cfun_q();
 		
@@ -1534,7 +1244,7 @@ void button2Action(void)
 {
 	printk("button 2 \n");
 	//print_cell_data();
-	//blinkTimes(5);
+	blinkTimes(5);
 	printk("Tower 1: %s\n", t1ID);
 	printk("Tower 2: %s\n", t2ID);
 	printk("Tower 3: %s\n", t3ID);
@@ -1596,6 +1306,9 @@ void button2Action(void)
 		
 	empty();
 
+	//sys_reboot(0);
+
+	//i'd like to power off here
 
 	return;
 }
@@ -1603,22 +1316,17 @@ void button2Action(void)
 void main(void)
 {
 	//initialize storage
-	//blinkTimes(1);
+	blinkTimes(1);
 	storage();
 	
-	int startFakeLEDs;
-	startFakeLEDs = gpio_pin_set_dt(&Tower_Read_Success, LOW);
-	startFakeLEDs = gpio_pin_set_dt(&Tower_Read_Fail, LOW);
-	startFakeLEDs = gpio_pin_set_dt(&Tower_Buffer_Full, LOW);
-	startFakeLEDs = gpio_pin_set_dt(&Tower_Connected, LOW);
 
 	//list all files and folders
 	lsdir(disk_mount_pt);
-	//blinkTimes(2);
+	blinkTimes(2);
 
 	//initialize global character arrays to contain the word empty
 	empty();
-	//blinkTimes(3);
+	blinkTimes(3);
 
 	//set the tower cops
 	strcpy(t1COPS, "empty");
@@ -1660,8 +1368,6 @@ void main(void)
 	atomic_set(&connected, 1);
 
 	LOG_INF("Connected to LTE network");
-	//Set tower connected pin high
-	//Tower_Connected_Change();
 
 	/* Wait until RRC connection has been released, otherwise modem will not be able to
 	 * measure neighbor cells unless currently configured by the network.
