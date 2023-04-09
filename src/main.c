@@ -1282,7 +1282,7 @@ static void button_handler(uint32_t button_states, uint32_t has_changed)
 	{
 		printk("button 1 \n");
 		//blinkTimes(5);
-		lsdir(disk_mount_pt);
+		//lsdir(disk_mount_pt);
 		//cfun_q();
 		
 		if (!atomic_get(&connected)) 
