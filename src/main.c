@@ -744,12 +744,12 @@ void empty(void)
 	strcpy(t1ID, "empty");
 	strcpy(t2ID, "empty");
 	strcpy(t3ID, "empty");
-	strcpy(t1COPS, "empty");
-	strcpy(t2COPS, "empty");
-	strcpy(t3COPS, "empty");
-	strcpy(t1SNR,"empty");
-	strcpy(t2SNR,"empty");
-	strcpy(t3SNR,"empty");
+	strcpy(t1COPS, "noCOPS1");
+	strcpy(t2COPS, "noCOPS2");
+	strcpy(t3COPS, "noCOPS3");
+	strcpy(t1SNR,"noSNR1");
+	strcpy(t2SNR,"noSNR2");
+	strcpy(t3SNR,"noSNR3");
 	printk("Towers emptied!\n");
 
 }
@@ -1621,9 +1621,9 @@ void main(void)
 	//blinkTimes(3);
 
 	//set the tower cops
-	strcpy(t1COPS, "empty");
-	strcpy(t2COPS, "empty");
-	strcpy(t3COPS, "empty");
+	strcpy(t1COPS, "noCOPS1");
+	strcpy(t2COPS, "noCOPS2");
+	strcpy(t3COPS, "noCOPS3");
 	
 	int err;
 
