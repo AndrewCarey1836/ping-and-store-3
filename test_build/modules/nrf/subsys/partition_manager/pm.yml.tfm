@@ -1,0 +1,34 @@
+tfm_sram:
+  placement: {after: [start]}
+  inside: sram_secure
+  size: 0x16000
+  region: sram_primary
+tfm:
+  placement: {before: [app]}
+  size: 0x40000
+tfm_secure:
+  span: [mcuboot_pad, tfm]
+tfm_nonsecure:
+  span: [app]
+tfm_storage:
+  span: []
+tfm_ps:
+  placement:
+    before: end
+    align: {start: 0x8000}
+  inside: tfm_storage
+  size: 0x4000
+tfm_its:
+  placement:
+    before: end
+    align: {start: 0x8000}
+  inside: tfm_storage
+  size: 0x2000
+tfm_otp_nv_counters:
+  placement:
+    before: end
+    align: {start: 0x8000}
+  inside: tfm_storage
+  size: 0x2000
+nonsecure_storage:
+  span: []
