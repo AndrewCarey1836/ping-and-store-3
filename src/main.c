@@ -5,7 +5,7 @@
  */
 
 /* 
-* Modified by Andrew Carey
+* Modified by Andrew Carey and Cameron Perdomo
 */
 
 //general c
@@ -59,9 +59,7 @@
 
 #define DEVICE_ID_MAX_LEN 64
 
-//LOG_MODULE_REGISTER(multicell_location_sample, CONFIG_MULTICELL_LOCATION_SAMPLE_LOG_LEVEL);
 //state what the log is called
-//this was part of storage
 LOG_MODULE_REGISTER(main);
 
 //set up the file system
@@ -72,15 +70,19 @@ static struct fs_mount_t mp = {
 	.fs_data = &fat_fs,
 };
 
+//names of files located on the SD card
+//test.txt is the output for the tower collection
 static const char *disk_mount_pt = "/SD:";
 static const char *testTxt = "/SD:/test.txt";
 static const char *textTxt = "/SD:/text.txt";
 static const char *derpTxt = "/SD:/derp.txt";
 
+//this is used to separate groups of three towers
 static const char *separator = "*******************************************\n";
 
 /***
  * set up for communication with pico
+ * not entirely stable and currently unused
 */
 #define SLEEP_TIME_MS   100
 #define TOGGLE_TIME 50
@@ -88,7 +90,9 @@ static const char *separator = "*******************************************\n";
 #define LOW 0
 
 /**
- * Output 
+ * These pins are used to control the LEDs on the board
+ * They also double as signals to the raspberry pi pico
+ * Currently in limited use
  */
 #define Tower_Read_Success_Pin DT_ALIAS(led0)
 #define Tower_Read_Fail_Pin DT_ALIAS(led1)
@@ -101,24 +105,14 @@ static const struct gpio_dt_spec Tower_Connected = GPIO_DT_SPEC_GET(Tower_Connec
 
 /****
  * Input
+ * These signals are from the raspberry pi pico
+ * They tell the nrf9160 what to do
+ * Button 4 is not listed here since it would interfere with power
 */
-/*
-#define Power_Button_Pin DT_ALIAS(sw0)
-#define Collect_Towers_Pin DT_ALIAS(sw1)
-#define Store_Towers_Pin DT_ALIAS(sw2)
-#define Output_Other_Pin DT_ALIAS(sw3)
-*/
-//#define Power_Button BIT(DK_BTN1)
-//#define Power_Button BIT(DK_BTN4)
 #define Collect_Towers BIT(DK_BTN1)
 #define Store_Towers BIT(DK_BTN2)
 #define Output_Other BIT(DK_BTN3)
-/*
-static const struct gpio_dt_spec Power_Button = GPIO_DT_SPEC_GET(Power_Button_Pin, gpios);
-static const struct gpio_dt_spec Collect_Towers = GPIO_DT_SPEC_GET(Collect_Towers_Pin, gpios);
-static const struct gpio_dt_spec Store_Towers = GPIO_DT_SPEC_GET(Store_Towers_Pin, gpios);
-static const struct gpio_dt_spec Output_Other = GPIO_DT_SPEC_GET(Output_Other_Pin, gpios);
-*/
+
 
 //towers as a global string
 //#define towerSize 200
@@ -169,7 +163,7 @@ char time[timeSize];
 
 //list of known COPS
 //a very lazy way of implementing,
-//but i need it to work quit
+//but i need it to work quick
 
 //AT&T Mobility
 static const char *att_mobility_cops="310410";
@@ -186,14 +180,9 @@ static const char *firstnet_cops = "313100";
 //other
 static const char *verizon = "311490";
 
-/*******
- * I am hoping this semaphore works!
- * It didn't!
-*/
 
-static K_SEM_DEFINE(scan,0,1);
-static K_SEM_DEFINE(store,0,1);
-
+//This is part of the multicell sample
+//It was left untouched
 BUILD_ASSERT(!IS_ENABLED(CONFIG_LTE_AUTO_INIT_AND_CONNECT),
 	"The sample does not support automatic LTE connection establishment");
 
@@ -212,80 +201,24 @@ static struct lte_lc_cells_info cell_data = {
 	.neighbor_cells = neighbor_cells,
 };
 
-/************
- * blink
- * 
- * 
-*/
-/*
-void blink(void)
-{
-	int ret;
-
-	if (!device_is_ready(led0.port)) {
-		return;
-	}
-
-	ret = gpio_pin_configure_dt(&led0, GPIO_OUTPUT_ACTIVE);
-	if (ret < 0) {
-		return;
-	}
-
-	//blink a few times
-	int count = 0;
-	while (count < 5) {
-		ret = gpio_pin_toggle_dt(&led);
-		if (ret < 0) {
-			return;
-		}
-		k_msleep(SLEEP_TIME_MS);
-		count++;
-	}
-}
-
-void blinkTimes(int times)
-{
-	int ret;
-
-	if (!device_is_ready(led.port)) 
-	{
-		return;
-	}
-
-	ret = gpio_pin_configure_dt(&led, GPIO_OUTPUT_ACTIVE);
-	if (ret < 0) 
-	{
-		return;
-	}
-	
-	//loop here
-	int loop;
-	for(loop = 0; loop < times; loop++)
-	{
-		ret = gpio_pin_toggle_dt(&led);
-		if (ret < 0) 
-		{
-			return;
-		}
-		k_msleep(SLEEP_TIME_MS);
-	}
-}
-*/
 
 /****
  * send signals to the raspberry pi pico
 */
 
+//If the tower is successfully read and stored to memory
 void Tower_Read_Success_Change(void)
 {
 	int ret;
 
+	//check if gpio pin is good to go
 	if (!device_is_ready(Tower_Read_Success.port)) 
 	{
 		printk("Tower Read Success Button not ready!\n");
 		return;
 	}
 
+	//set pin to output digital signal
 	ret = gpio_pin_configure_dt(&Tower_Read_Success, GPIO_OUTPUT_ACTIVE);
 	if (ret < 0) 
 	{
@@ -293,78 +226,79 @@ void Tower_Read_Success_Change(void)
 		return;
 	}
 
-	//ret = gpio_pin_toggle_dt(&Tower_Read_Success);
-	//ret = gpio_pin_toggle_dt(&Tower_Read_Success);
+	//set the pin to high, wait a specified amount of time, then set it low
 	ret  = gpio_pin_set_dt(&Tower_Read_Success, HIGH);
 	k_msleep(TOGGLE_TIME);
 	ret  = gpio_pin_set_dt(&Tower_Read_Success, LOW);
 	
 }
 
+//Signal the nrf9160 did not collect tower info correctly
 void Tower_Read_Fail_Change(void)
 {
 	int ret;
 
+	//get the gpio pin ready
 	if (!device_is_ready(Tower_Read_Fail.port)) 
 	{
 		printk("Tower Read Fail Button not ready!\n");
 		return;
 	}
 
+	//set the gpio pin to output a digital signal
 	ret = gpio_pin_configure_dt(&Tower_Read_Fail, GPIO_OUTPUT_ACTIVE);
 	if (ret < 0) 
 	{
 		printk("Tower Read Fail Button not configured!\n");
 		return;
 	}
-	/*
-	ret = gpio_pin_toggle_dt(&Tower_Read_Fail);
-	k_msleep(SLEEP_TIME_MS);
-	ret = gpio_pin_toggle_dt(&Tower_Read_Fail);
-	*/
+	
+	//set the pin high, wait, then set it low
 	ret  = gpio_pin_set_dt(&Tower_Read_Fail, HIGH);
 	k_msleep(TOGGLE_TIME);
 	ret  = gpio_pin_set_dt(&Tower_Read_Fail, LOW);
 	
 }
 
+
+//signal that the required towers have been collected
 void Tower_Buffer_Full_Change(void)
 {
 	int ret;
 
+	//check if gpio pin is good
 	if (!device_is_ready(Tower_Buffer_Full.port)) 
 	{
 		printk("Tower Buffer Button not ready!\n");
 		return;
 	}
 
+	//configure gpio pin for digital signal output
 	ret = gpio_pin_configure_dt(&Tower_Buffer_Full, GPIO_OUTPUT_ACTIVE);
 	if (ret < 0) 
 	{
 		printk("Tower Buffer Button not configured!\n");
 		return;
 	}
-	/*
-	ret = gpio_pin_toggle_dt(&Tower_Buffer_Full);
-	k_msleep(SLEEP_TIME_MS);
-	ret = gpio_pin_toggle_dt(&Tower_Buffer_Full);
-	*/
+	
+	//set the pin high, wait, then low
 	ret  = gpio_pin_set_dt(&Tower_Buffer_Full, HIGH);
 	k_msleep(TOGGLE_TIME);
 	ret  = gpio_pin_set_dt(&Tower_Buffer_Full, LOW);
 	
 }
 
+//signal that the modem has changed from one cell to another
 void Tower_Connected_Change(void)
 {
 	int ret;
-
+	//check if gpio pin is good
 	if (!device_is_ready(Tower_Connected.port)) 
 	{
 		printk("Tower Connected Button not ready!\n");
 		return;
 	}
-
+	//configure gpio pin for digital signal output
 	ret = gpio_pin_configure_dt(&Tower_Connected, GPIO_OUTPUT_ACTIVE);
 	if (ret < 0) 
 	{
@@ -372,11 +306,7 @@ void Tower_Connected_Change(void)
 		return;
 	}
 
-	/*
-	ret = gpio_pin_toggle_dt(&Tower_Connected);
-	k_msleep(SLEEP_TIME_MS);
-	ret = gpio_pin_toggle_dt(&Tower_Connected);
-	*/
+	//set the pin high, wait, then low
 	ret  = gpio_pin_set_dt(&Tower_Connected, HIGH);
 	k_msleep(TOGGLE_TIME);
 	ret  = gpio_pin_set_dt(&Tower_Connected, LOW);
@@ -387,6 +317,7 @@ void Tower_Connected_Change(void)
  * Begin Power Fucntion Section
  * This turns the board off and on again
  * It comes from the nordic + zephyr "system_off" example
+ * Button 4 controls the on functionality
  * 
 */
 
@@ -425,24 +356,13 @@ void power(void)
 		printk("Retained data not supported\n");
 	}
 
-	//NEED TO FIX THIS SWITCH!!!!!!
 	
 	nrf_gpio_cfg_input(NRF_DT_GPIOS_TO_PSEL(DT_ALIAS(sw3), gpios),
 			   NRF_GPIO_PIN_PULLUP);
 	nrf_gpio_cfg_sense_set(NRF_DT_GPIOS_TO_PSEL(DT_ALIAS(sw3), gpios),
 			       NRF_GPIO_PIN_SENSE_LOW);
-	
-	/*
-	nrf_gpio_cfg_input(NRF_DT_GPIOS_TO_PSEL(Power_Button, gpios),
-			   NRF_GPIO_PIN_PULLUP);
-	nrf_gpio_cfg_sense_set(NRF_DT_GPIOS_TO_PSEL(Power_Button, gpios),
-			       NRF_GPIO_PIN_SENSE_LOW); 
-	*/	
-	/*
-	nrf_gpio_cfg_input(Power_Button, NRF_GPIO_PIN_PULLUP);
-	nrf_gpio_cfg_sense_set(Power_Button, NRF_GPIO_PIN_SENSE_LOW);
-	*/		   
-	printk("Entering system off; press BUTTON1 to restart\n");
+		   
+	printk("Entering system off!\nPress Power Button to reboot\n");
 
 	if (IS_ENABLED(CONFIG_APP_RETENTION)) {
 		/* Update the retained state */
@@ -513,19 +433,13 @@ void storage(void)
 
 	if (res == FR_OK) {
 		printk("Disk mounted.\n");
-		//lsdir(disk_mount_pt);
 	} else {
 		printk("Error mounting disk.\n");
 	}
-
-	//disable infinite loop
-	/*
-	while (1) {
-		k_sleep(K_MSEC(1000));
-	}
-	*/
 }
 
+//list the directory as well as the folders and files in it
+//uses the directory path as an input
 static int lsdir(const char *path)
 {
 	int res;
@@ -541,6 +455,7 @@ static int lsdir(const char *path)
 		return res;
 	}
 
+	//list all folders and files
 	printk("\nListing dir %s ...\n", path);
 	for (;;) {
 		/* Verify fs_readdir() */
@@ -748,8 +663,7 @@ void empty(void)
 	memset(t3ID, 0, sizeof(t3ID));
 	
 
-	//set the towers to contain the word empty
-	//printk("Setting towers to empty!\n");
+	//set the tower IDs to say empty, Current Operator to noCOPS, and Signal to Noise ratio to noSNR
 	strcpy(t1ID, "empty");
 	strcpy(t2ID, "empty");
 	strcpy(t3ID, "empty");
@@ -765,7 +679,8 @@ void empty(void)
 
 /******
  * AES-GCM
- * 
+ * This implements the security functionality
+ * Uses AES-128 since there is library and hardware support for it
  * CRYPTO!!!!!!
 */
 
@@ -781,6 +696,7 @@ void empty(void)
 #define NRF_CRYPTO_EXAMPLE_AES_ADDITIONAL_SIZE (35)
 #define NRF_CRYPTO_EXAMPLE_AES_GCM_TAG_LENGTH (16)
 
+//prints the text both plain and cipher
 #define PRINT_HEX(p_label, p_text, len)				  \
 	({							  \
 		LOG_INF("---- %s (len: %u): ----", p_label, len); \
@@ -792,19 +708,25 @@ void empty(void)
 /* AES sample IV, DO NOT USE IN PRODUCTION */
 static uint8_t m_iv[NRF_CRYPTO_EXAMPLE_AES_IV_SIZE];
 
+//the plain text message stored in an array of 8-bit integers
 uint8_t m_plain_text[NRF_CRYPTO_EXAMPLE_AES_MAX_TEXT_SIZE];
 
+//additional plaintext array
 static uint8_t m_additional_data[NRF_CRYPTO_EXAMPLE_AES_ADDITIONAL_SIZE] = {
 	"Example string of additional data"
 };
 
+//array of encrypted text
 static uint8_t m_encrypted_text[NRF_CRYPTO_EXAMPLE_AES_MAX_TEXT_SIZE +
 				NRF_CRYPTO_EXAMPLE_AES_GCM_TAG_LENGTH];
 
+//array of decrypte text
 static uint8_t m_decrypted_text[NRF_CRYPTO_EXAMPLE_AES_MAX_TEXT_SIZE];
 
+//the key, I believe
 static psa_key_handle_t key_handle;
 
+//start the crypto functions
 int crypto_init(void)
 {
 	psa_status_t status;
@@ -818,6 +740,8 @@ int crypto_init(void)
 	return APP_SUCCESS;
 }
 
+//end the crypto fuctions
+//destroys the key
 int crypto_finish(void)
 {
 	psa_status_t status;
@@ -832,6 +756,7 @@ int crypto_finish(void)
 	return APP_SUCCESS;
 }
 
+//generate the key
 int generate_key(void)
 {
 	psa_status_t status;
@@ -864,6 +789,7 @@ int generate_key(void)
 	return 0;
 }
 
+//encrypt the data stored in the plaintext array
 int encrypt_aes_gcm(void)
 {
 	uint32_t output_len;
@@ -904,6 +830,7 @@ int encrypt_aes_gcm(void)
 	return APP_SUCCESS;
 }
 
+//decrypt the text stored in the cipher text array
 int decrypt_aes_gcm(void)
 {
 	uint32_t output_len;
@@ -941,7 +868,10 @@ int decrypt_aes_gcm(void)
 	return APP_SUCCESS;
 }
 
-//custom crypto
+/* 
+*	custom crypto
+*	These call the above commands
+*/
 
 //start crypto
 int startCrypto(void)
@@ -964,6 +894,8 @@ int startCrypto(void)
 	return 0;
 }
 
+//secure the data
+//convert a string input into an array of integers
 int encryptData(char *str, int strLength)
 {
 	uint8_t * u = (uint8_t *)(str);
@@ -990,6 +922,7 @@ int encryptData(char *str, int strLength)
 	return status;
 }
 
+//decrypt the cipher text
 int decryptData()
 {
 	int status;
@@ -1008,6 +941,7 @@ int decryptData()
 	return 0;
 }
 
+//delete the key
 int cryptoEnd()
 {
 	int status;
@@ -1022,9 +956,8 @@ int cryptoEnd()
 
 /**
  * print all the tower data to a giant AES string
- * 
+ * Bugged as of now
  */
-
 int secure()
 {
 	char all[500];
@@ -1115,9 +1048,8 @@ int secure()
 
 /*
 * Multicell Location
-*
+* This comes directly from the sample
 */
-
 static void lte_handler(const struct lte_lc_evt *const evt)
 {
 	switch (evt->type) {
@@ -1264,6 +1196,7 @@ static int lte_connect(void)
 }
 
 //change COPS
+//This changes the operator in order to connect to a new cell
 void changeCOPS(char *opName, int lenOpName)
 {
 	int err;
@@ -1271,12 +1204,9 @@ void changeCOPS(char *opName, int lenOpName)
 
 	char cmd[25] = "AT+COPS=1,2,\"";
 
-	//printk("new COPS: %s\n", opName);
-
 	strcat(cmd,opName);
 	strcat(cmd,"\"");
 
-	// err = nrf_modem_at_cmd(response, sizeof(response), "AT+COPS=1,2,\"310410\"");
     err = nrf_modem_at_cmd(response, sizeof(response), cmd);
 	if (err) 
 	{
@@ -1300,20 +1230,6 @@ static void start_cell_measurements(void)
 	}
 }
 
-/*
-static void button_handler(uint32_t button_states, uint32_t has_changed)
-{
-	if (has_changed & button_states & DK_BTN1_MSK) {
-		if (!atomic_get(&connected)) {
-			LOG_INF("Ignoring button press, not connected to network");
-			return;
-		}
-
-		LOG_INF("Button 1 pressed, starting cell measurements");
-		start_cell_measurements();
-	}
-}
-*/
 
 #if defined(CONFIG_MULTICELL_LOCATION_SAMPLE_REQUEST_CELL_CHANGE)
 static void cell_change_search_work_fn(struct k_work *work)
@@ -1340,6 +1256,9 @@ static void periodic_search_work_fn(struct k_work *work)
 }
 #endif
 
+//get the signal to noise ratio
+//currently causes issues with storing to files
+//I think it's a problem with the modem and SPI 
 void getSNR(int towerNum)
 {
 	int err;
@@ -1404,9 +1323,9 @@ void getSNR(int towerNum)
 			printk("Not stored!\n");
 		}
 
-    //printk("Modem response:\n%s", response);
 }
 
+//print the tower data collected to the screen and file
 static void print_cell_data(void)
 {
 	if (cell_data.current_cell.id == LTE_LC_CELL_EUTRAN_ID_INVALID) {
@@ -1445,12 +1364,9 @@ static void print_cell_data(void)
 	//make sure timing advance is a valid number
 	if(cell_data.current_cell.timing_advance != 65535)
 	{
-		if((strstr(t1ID, "empty") != NULL) ) //&& (strstr(newTA, "65535") != NULL)
+		if((strstr(t1ID, "empty") != NULL) )
 		{	
-			//strcpy(t1ID,cell_data.current_cell.id);
 			sprintf(t1ID,"%d",cell_data.current_cell.id);
-			//AppendString(testTxt, newID, strlen(newID),false);
-			//AppendCharacter(testTxt, '\n');
 			sprintf(t1MCC,"%03d",cell_data.current_cell.mcc);
 			sprintf(t1MNC,"%03d",cell_data.current_cell.mnc);
 			sprintf(t1TAC,"%d",cell_data.current_cell.tac);
@@ -1464,10 +1380,8 @@ static void print_cell_data(void)
 			//getSNR(1);
 		}
 
-		//else if((strstr(t2ID, "empty") != NULL) && (!(strstr(t1ID, newID) != NULL) || !(strstr(t1COPS, newCOPS) != NULL) )) // && !(strstr(newTA, "65535") != NULL)
-		else if((strstr(t2ID, "empty") != NULL)  && (!(strstr(t1COPS, newCOPS) != NULL))) //&& (!(strstr(t1ID, newID) != NULL))
+		else if((strstr(t2ID, "empty") != NULL)  && (!(strstr(t1COPS, newCOPS) != NULL)))
 		{	
-			//strcpy(t2ID,cell_data.current_cell.id);
 			sprintf(t2ID,"%d",cell_data.current_cell.id);
 			sprintf(t2MCC,"%03d",cell_data.current_cell.mcc);
 			sprintf(t2MNC,"%03d",cell_data.current_cell.mnc);
@@ -1481,10 +1395,8 @@ static void print_cell_data(void)
 			//getSNR(2);
 		}
 
-		//else if((strstr(t3ID, "empty") != NULL) && (!(strstr(t2ID, newID) != NULL) || !(strstr(t2COPS, newCOPS) != NULL) ) && (!(strstr(t1ID, newID) != NULL) || !(strstr(t1COPS, newCOPS) != NULL) ) ) //&& !(strstr(newTA, "65535") != NULL)
-		else if((strstr(t3ID, "empty") != NULL) && (!(strstr(t1COPS, newCOPS) != NULL)) && (!(strstr(t2COPS, newCOPS) != NULL))) //(!(strstr(t2ID, newID) != NULL)) && (!(strstr(t1ID, newID) != NULL))
+		else if((strstr(t3ID, "empty") != NULL) && (!(strstr(t1COPS, newCOPS) != NULL)) && (!(strstr(t2COPS, newCOPS) != NULL)))
 		{	
-			//strcpy(t3ID,cell_data.current_cell.id);
 			sprintf(t3ID,"%d",cell_data.current_cell.id);
 			sprintf(t3MCC,"%03d",cell_data.current_cell.mcc);
 			sprintf(t3MNC,"%03d",cell_data.current_cell.mnc);
@@ -1514,12 +1426,13 @@ static void print_cell_data(void)
 	}
 
 	
-
+	//print towers collected thus far
 	printk("Currently stored towers:\n");
 	printk("Tower 1: %s\n", t1ID);
 	printk("Tower 2: %s\n", t2ID);
 	printk("Tower 3: %s\n", t3ID);
 
+	//print the operators used
 	printk("Tower 1 COPS: %s\n", t1COPS);
 	printk("Tower 2 COPS: %s\n", t2COPS);
 	printk("Tower 3 COPS: %s\n", t3COPS);
@@ -1533,6 +1446,7 @@ static void print_cell_data(void)
 	
 
 	//set the value of COPS
+	//really lazy implementation but it works for the area
 
 	//check if 1st tower is t-mobile
 	if(strstr(t1COPS, t_mobile_cops) != NULL)
@@ -1590,11 +1504,14 @@ static void print_cell_data(void)
 	}
 }
 
+//get the time from the towers
+//if this is not collected, the board
 void getTime(void)
 {
 	int err;
     char response[64];
 
+	//clock command
 	err = nrf_modem_at_cmd(response, sizeof(response), "AT+CCLK?");
     if (err) 
 	{
@@ -1637,8 +1554,10 @@ void getTime(void)
 
 /*****
  * button
- * 
- * 
+ * button 1 collects data
+ * button 2 stores the data
+ * button 3 does nothing
+ * button 4 wakes the board up
 */
 
 //custom button handler
@@ -1680,26 +1599,12 @@ static void button_handler(uint32_t button_states, uint32_t has_changed)
 		//print_cell_data();
 		//blinkTimes(5);
 
-
-		
-		//set and get time
-		//int64_t unix_time_ms;
-		//date_time_update();
-		//int err= date_time_now(&unix_time_ms);
-		//printk("Date_time: %i %i\n", (uint32_t)(unix_time_ms/1000000), (uint32_t)(unix_time_ms%1000000));
-		//AppendString(testTxt, "hello\n", 6, true);
-		//cmd_read();
-		//AppendString(testTxt, t1, strlen(t1), true);
-		//AppendString(testTxt, t2, strlen(t2), true);
-		//AppendString(testTxt, t3, strlen(t3), true);
+		//print the collected towers
 		printk("Tower 1: %s\n", t1ID);
 		printk("Tower 2: %s\n", t2ID);
 		printk("Tower 3: %s\n", t3ID);
-		/*
-		AppendString(testTxt, t1ID, strlen(t1ID), true);
-		AppendString(testTxt, t2ID, strlen(t2ID), true);
-		AppendString(testTxt, t3ID, strlen(t3ID), true);
-		*/
+		
+		//fix the strings so they print right
 		if((strcmp(t1ID, "empty") == 0))
 		{
 			strcpy(t1ID, "empty\n");
@@ -1715,9 +1620,10 @@ static void button_handler(uint32_t button_states, uint32_t has_changed)
 			strcpy(t3ID, "empty\n");
 		}
 
+		//get the current time
 		getTime();
 
-
+		//put all the strings into a text file
 		AppendString(testTxt, separator, strlen(separator), false);
 		//tower 1
 		AppendString(testTxt, t1ID, strlen(t1ID), false);
@@ -1791,210 +1697,29 @@ static void button_handler(uint32_t button_states, uint32_t has_changed)
 		printk("\n");
 		*/
 		
+		//clear the strings
 		empty();
 
+		//turn the board off
 		power();
 	}
 
+	//if the useless button is pressed
 	if (has_changed & button_states & Output_Other) 
 	{
-		//printk("Unused!\n");
 		printk("button 3 \n");
-
-		/*
-
-		printk("Tower 1: %s\n", t1ID);
-		printk("Tower 2: %s\n", t2ID);
-		printk("Tower 3: %s\n", t3ID);
-
-		if((strcmp(t1ID, "empty") == 0))
-		{
-			strcpy(t1ID, "empty\n");
-		}
-
-		if((strcmp(t2ID, "empty") == 0))
-		{
-			strcpy(t2ID, "empty\n");
-		}
-
-		if((strcmp(t3ID, "empty") == 0))
-		{
-			strcpy(t3ID, "empty\n");
-		}
-
-		getTime();
-
-
-		AppendString(testTxt, separator, strlen(separator), false);
-		//tower 1
-		AppendString(testTxt, t1ID, strlen(t1ID), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t1MCC, strlen(t1MCC), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t1MNC, strlen(t1MNC), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t1TAC, strlen(t1TAC), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t1TA, strlen(t1TA), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t1RSRP, strlen(t1RSRP), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t1RSRQ, strlen(t1RSRQ), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t1SNR, strlen(t1SNR), false);
-		AppendCharacter(testTxt,'\n');
-		//tower 2
-		AppendString(testTxt, t2ID, strlen(t2ID), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t2MCC, strlen(t2MCC), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t2MNC, strlen(t2MNC), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t2TAC, strlen(t2TAC), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t2TA, strlen(t2TA), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t2RSRP, strlen(t2RSRP), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t2RSRQ, strlen(t2RSRQ), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t2SNR, strlen(t2SNR), false);
-		AppendCharacter(testTxt,'\n');
-		//tower 3
-		AppendString(testTxt, t3ID, strlen(t3ID), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t3MCC, strlen(t3MCC), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t3MNC, strlen(t3MNC), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t3TAC, strlen(t3TAC), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t3TA, strlen(t3TA), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t3RSRP, strlen(t3RSRP), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t3RSRQ, strlen(t3RSRQ), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t3SNR, strlen(t3SNR), false);
-		AppendCharacter(testTxt,'\n');
-		
-		AppendString(testTxt, time, strlen(time), false);
-		AppendString(testTxt, separator, strlen(separator), false);
-		
-		empty();
-
-		power();
-		*/
-
 	}
-
-	//This will be the power button
-	//if (has_changed & button_states & Power_Button)
-	/*
-	if (has_changed & button_states & DK_BTN3_MSK) 
-	{
-		power();
-		printk("power!\n");
-	}
-	*/
 	
 }
 
-void button1Action(void)
-{
-	printk("button 1 \n");
-	//blinkTimes(5);
-	lsdir(disk_mount_pt);
-	//cfun_q();
-		
-	if (!atomic_get(&connected)) 
-	{
-		LOG_INF("Ignoring button press, not connected to network");
-		return;
-	}
-
-	LOG_INF("Button 1 pressed, starting cell measurements");
-	start_cell_measurements();
-	return;
-}
-
-void button2Action(void)
-{
-	printk("button 2 \n");
-	//print_cell_data();
-	//blinkTimes(5);
-	printk("Tower 1: %s\n", t1ID);
-	printk("Tower 2: %s\n", t2ID);
-	printk("Tower 3: %s\n", t3ID);
-	if((strcmp(t1ID, "empty") == 0))
-	{
-		strcpy(t1ID, "empty\n");
-	}
-
-	if((strcmp(t2ID, "empty") == 0))
-	{
-		strcpy(t2ID, "empty\n");
-	}
-
-	if((strcmp(t3ID, "empty") == 0))
-	{
-		strcpy(t3ID, "empty\n");
-	}
-
-	getTime();
-
-
-	AppendString(testTxt, separator, strlen(separator), false);
-	//tower 1
-	AppendString(testTxt, t1ID, strlen(t1ID), false);
-	AppendCharacter(testTxt,'\n');
-	AppendString(testTxt, t1MCC, strlen(t1MCC), false);
-	AppendCharacter(testTxt,'\n');
-	AppendString(testTxt, t1MNC, strlen(t1MNC), false);
-	AppendCharacter(testTxt,'\n');
-	AppendString(testTxt, t1TAC, strlen(t1TAC), false);
-	AppendCharacter(testTxt,'\n');
-	AppendString(testTxt, t1TA, strlen(t1TA), false);
-	AppendCharacter(testTxt,'\n');
-	//tower 2
-	AppendString(testTxt, t2ID, strlen(t2ID), false);
-	AppendCharacter(testTxt,'\n');
-	AppendString(testTxt, t2MCC, strlen(t2MCC), false);
-	AppendCharacter(testTxt,'\n');
-	AppendString(testTxt, t2MNC, strlen(t2MNC), false);
-	AppendCharacter(testTxt,'\n');
-	AppendString(testTxt, t2TAC, strlen(t2TAC), false);
-	AppendCharacter(testTxt,'\n');
-	AppendString(testTxt, t2TA, strlen(t2TA), false);
-	AppendCharacter(testTxt,'\n');
-	//tower 3
-	AppendString(testTxt, t3ID, strlen(t3ID), false);
-	AppendCharacter(testTxt,'\n');
-	AppendString(testTxt, t3MCC, strlen(t3MCC), false);
-	AppendCharacter(testTxt,'\n');
-	AppendString(testTxt, t3MNC, strlen(t3MNC), false);
-	AppendCharacter(testTxt,'\n');
-	AppendString(testTxt, t3TAC, strlen(t3TAC), false);
-	AppendCharacter(testTxt,'\n');
-	AppendString(testTxt, t3TA, strlen(t3TA), false);
-	AppendCharacter(testTxt,'\n');
-	
-	AppendString(testTxt, time, strlen(time), false);
-	AppendString(testTxt, separator, strlen(separator), false);
-		
-	empty();
-
-
-	return;
-}
 
 void main(void)
 {
-	//initialize storage
-	//blinkTimes(1);
-	
+	//initialize storage	
 	storage();
 
+	//uses the leds as signals to the pico
+	//not implemented
 	int startFakeLEDs;
 	startFakeLEDs = gpio_pin_set_dt(&Tower_Read_Success, LOW);
 	startFakeLEDs = gpio_pin_set_dt(&Tower_Read_Fail, LOW);
@@ -2016,8 +1741,7 @@ void main(void)
 	
 	int err;
 
-	//LOG_INF("Multicell location sample has started");
-	LOG_INF("Main has started!");
+	LOG_INF("Program has started!");
 
 #if defined(CONFIG_MULTICELL_LOCATION_SAMPLE_REQUEST_CELL_CHANGE)
 	k_work_init(&cell_change_search_work, cell_change_search_work_fn);
@@ -2072,7 +1796,6 @@ void main(void)
 	int loopForever;
 	for(loopForever = 0; loopForever < 2; )
 	{
-		start:
 		k_sem_take(&cell_data_ready, K_FOREVER);
 
 		if (CONFIG_MULTICELL_LOCATION_SAMPLE_PRINT_DATA) 
@@ -2081,35 +1804,12 @@ void main(void)
 			//print_cell_data();
 		}
 
-		//get the scan lock
-		/*
-		if(k_sem_take(&scan, timeout) != 0)
-		{
-			printk("Scan is not available!\n");
-			print_cell_data();
-			printk("scan: %d\n", k_sem_count_get(&scan));
-			k_sem_give(&scan);
-			goto start;
-		}
-		else
-		{
-			printk("Data is being gathered!\n");
-			start_cell_measurements();
-			printk("scan: %d\n", k_sem_count_get(&scan));
-			k_sem_take(&scan, timeout);
-			goto start;
-		}
-		*/
-		//k_msleep(1000);
-
 		
 		if(getData == 1)
 		{
 			printk("Scan is not available!\n");
 			print_cell_data();
-			//printk("scan: %d\n", k_sem_count_get(&scan));
 			getData = 0;
-			//goto start;
 		}
 		else
 		{
@@ -2120,9 +1820,7 @@ void main(void)
 				goto start;
 			}
 			start_cell_measurements();
-			//printk("scan: %d\n", k_sem_count_get(&scan));
 			getData = 1;
-			//goto start;
 		}
 		
 
