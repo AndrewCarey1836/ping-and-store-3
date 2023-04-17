@@ -123,6 +123,9 @@ static const struct gpio_dt_spec Tower_Connected = GPIO_DT_SPEC_GET(Tower_Connec
 #define towerSizeCOPS 25
 #define towerSizeSNR 400
 
+#define timeSize 50
+char time[timeSize];
+
 //towers
 
 //tower 1
@@ -135,6 +138,7 @@ char t1COPS[towerSizeCOPS];
 char t1RSRP[towerSizeMCCMNC];
 char t1RSRQ[towerSizeMCCMNC];
 char t1SNR[towerSizeSNR];
+char t1Band[timeSize];
 
 //tower 2
 char t2ID[towerSizeID];
@@ -146,6 +150,7 @@ char t2COPS[towerSizeCOPS];
 char t2RSRP[towerSizeMCCMNC];
 char t2RSRQ[towerSizeMCCMNC];
 char t2SNR[towerSizeSNR];
+char t2Band[timeSize];
 
 //tower 3
 char t3ID[towerSizeID];
@@ -157,9 +162,8 @@ char t3COPS[towerSizeCOPS];
 char t3RSRP[towerSizeMCCMNC];
 char t3RSRQ[towerSizeMCCMNC];
 char t3SNR[towerSizeSNR];
+char t3Band[timeSize];
 
-#define timeSize 50
-char time[timeSize];
 
 //list of known COPS
 //a very lazy way of implementing,
@@ -673,6 +677,9 @@ void empty(void)
 	strcpy(t1SNR,"noSNR1");
 	strcpy(t2SNR,"noSNR2");
 	strcpy(t3SNR,"noSNR3");
+	strcpy(t1Band,"noBand1");
+	strcpy(t2Band,"noBand2");
+	strcpy(t3Band,"noBand3");
 	printk("Towers emptied!\n");
 
 }
@@ -1549,7 +1556,74 @@ void getTime(void)
     //printk("Modem response:\n%s", response);
 }
 
+//get the band info
+//hopefully it works
+void getBand(void)
+{
+	int err;
+    char response[64];
 
+	//clock command
+	err = nrf_modem_at_cmd(response, sizeof(response), "AT%%XCBAND");
+    if (err) 
+	{
+        //error
+    }
+
+	int dataSize = 64;
+	char data[dataSize];
+	strcpy(data,response);
+	int data_length = strlen(data);
+
+	int loop;
+		for(loop = 0; loop < data_length; loop++)
+		{
+		
+			//only want A-Z, a-z, 0-9, and newline characters
+			if( (data[loop] >= 'a' && data[loop] <= 'z') 
+			||  (data[loop] >= 'A' && data[loop] <= 'Z') 
+			||  (data[loop] >= '0' && data[loop] <= '9')
+			||  (data[loop] == '\n') ||  (data[loop] == '/') 
+			||  (data[loop] == ':') || (data[loop] == '+'))
+			{
+				//printk("%c", data[loop]);
+			}
+			//set all other characters to underscore
+			else
+			{
+				data[loop] = '_';
+			}
+		}
+
+		//strcpy(time,data);	
+		//printk("Time: %s", time);
+		if(strcmp(t1Band, "noBand1") == 0)
+		{
+			strcpy(t1Band, data);
+		}
+
+		else if(strcmp(t2Band, "noBand2") == 0)
+		{
+			strcpy(t2Band, data);
+		}
+
+		else if(strcmp(t3Band, "noBand3") == 0)
+		{
+			strcpy(t3Band, data);
+		}
+
+		else
+		{
+			printk("Band not stored");
+		}
+
+		printk("tower 1 band: %s\n", t1Band);
+		printk("tower 2 band: %s\n", t2Band);
+		printk("tower 3 band: %s\n", t3Band);
+
+
+    //printk("Modem response:\n%s", response);
+}
 
 
 /*****
@@ -1585,6 +1659,8 @@ static void button_handler(uint32_t button_states, uint32_t has_changed)
 		start_cell_measurements();
 
 		getTime();
+
+		getBand();
 	
 		//readCOPS();
 		//testCOPS();
@@ -1642,6 +1718,9 @@ static void button_handler(uint32_t button_states, uint32_t has_changed)
 		AppendCharacter(testTxt,'\n');
 		AppendString(testTxt, t1SNR, strlen(t1SNR), false);
 		AppendCharacter(testTxt,'\n');
+		AppendString(testTxt, t1Band, strlen(t1Band), false);
+		AppendCharacter(testTxt,'\n');
+
 		//tower 2
 		AppendString(testTxt, t2ID, strlen(t2ID), false);
 		AppendCharacter(testTxt,'\n');
@@ -1659,6 +1738,9 @@ static void button_handler(uint32_t button_states, uint32_t has_changed)
 		AppendCharacter(testTxt,'\n');
 		AppendString(testTxt, t2SNR, strlen(t2SNR), false);
 		AppendCharacter(testTxt,'\n');
+		AppendString(testTxt, t2Band, strlen(t2Band), false);
+		AppendCharacter(testTxt,'\n');
+		
 		//tower 3
 		AppendString(testTxt, t3ID, strlen(t3ID), false);
 		AppendCharacter(testTxt,'\n');
@@ -1675,6 +1757,8 @@ static void button_handler(uint32_t button_states, uint32_t has_changed)
 		AppendString(testTxt, t3RSRQ, strlen(t3RSRQ), false);
 		AppendCharacter(testTxt,'\n');
 		AppendString(testTxt, t3SNR, strlen(t3SNR), false);
+		AppendCharacter(testTxt,'\n');
+		AppendString(testTxt, t3Band, strlen(t3Band), false);
 		AppendCharacter(testTxt,'\n');
 		
 		AppendString(testTxt, time, strlen(time), false);
@@ -1789,6 +1873,7 @@ void main(void)
 	start_cell_measurements();
 #endif
 
+	
 	//printk("About to enter loop!\n");
 	k_timeout_t timeout = K_MSEC(1000);
 	//k_sem_give(&scan);
@@ -1803,7 +1888,6 @@ void main(void)
 			//printk("Now printing cell data!\n");
 			//print_cell_data();
 		}
-
 		
 		if(getData == 1)
 		{
@@ -1817,12 +1901,9 @@ void main(void)
 			if (!atomic_get(&connected)) 
 			{
 				LOG_INF("Ignoring button press, not connected to network");
-				goto start;
 			}
 			start_cell_measurements();
 			getData = 1;
 		}
-		
-
 	}
 }
