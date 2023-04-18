@@ -76,6 +76,7 @@ static const char *disk_mount_pt = "/SD:";
 static const char *testTxt = "/SD:/test.txt";
 static const char *textTxt = "/SD:/text.txt";
 static const char *derpTxt = "/SD:/derp.txt";
+static const char *secureTxt = "/SD:/secure.txt";
 
 //this is used to separate groups of three towers
 static const char *separator = "*******************************************\n";
@@ -125,6 +126,10 @@ static const struct gpio_dt_spec Tower_Connected = GPIO_DT_SPEC_GET(Tower_Connec
 
 #define timeSize 50
 char time[timeSize];
+
+//AES
+char keyDeci[128];
+char keyHex[128];
 
 //towers
 
@@ -773,7 +778,7 @@ int generate_key(void)
 	/* Configure the key attributes */
 	psa_key_attributes_t key_attributes = PSA_KEY_ATTRIBUTES_INIT;
 
-	psa_set_key_usage_flags(&key_attributes, PSA_KEY_USAGE_ENCRYPT | PSA_KEY_USAGE_DECRYPT);
+	psa_set_key_usage_flags(&key_attributes, PSA_KEY_USAGE_ENCRYPT | PSA_KEY_USAGE_DECRYPT | PSA_KEY_USAGE_EXPORT);
 	psa_set_key_lifetime(&key_attributes, PSA_KEY_LIFETIME_VOLATILE);
 	psa_set_key_algorithm(&key_attributes, PSA_ALG_GCM);
 	psa_set_key_type(&key_attributes, PSA_KEY_TYPE_AES);
@@ -792,6 +797,51 @@ int generate_key(void)
 	psa_reset_key_attributes(&key_attributes);
 
 	//LOG_INF("AES key generated successfully!");
+	
+	uint8_t out[130];
+	uint32_t out_len = 128;
+	status = psa_export_key(key_handle, out, sizeof(out), &out_len);
+	if(status != APP_SUCCESS)
+	{
+		printk("Problem with export!\n");
+	}
+
+	int loop;
+	printk("Key in decimal: ");
+	char conD[5];
+	for(loop = 0; loop < out_len; loop++)
+	{
+		printk("%d ", out[loop]);
+		sprintf(conD,"%d", out[loop]);
+		if(loop == 0)
+		{
+			strcpy(keyDeci, conD);
+		}
+		else
+		{
+			strcat(keyDeci, conD);
+		}
+	}
+	printk("\n");
+	printk("Key in hex: ");
+	char conH[5];
+	for(loop = 0; loop < out_len; loop++)
+	{
+		printk("%02x ", out[loop]);
+		sprintf(conH,"%02x", out[loop]);
+		if(loop == 0)
+		{
+			strcpy(keyHex, conH);
+		}
+		else
+		{
+			strcat(keyHex, conH);
+		}
+	}
+	printk("\n");
+
+	printk("Key in hex: %s\n", keyHex);
+
 
 	return 0;
 }
@@ -905,13 +955,14 @@ int startCrypto(void)
 //convert a string input into an array of integers
 int encryptData(char *str, int strLength)
 {
-	uint8_t * u = (uint8_t *)(str);
+	//uint8_t * u = (uint8_t *)(str);
 	int loop = 0;
 	for(loop = 0; loop < strLength; loop++)
 	{
-		m_plain_text[loop] = u[loop];
+		m_plain_text[loop] = (uint8_t *)(str[loop]);
 	}
 	
+	printk("Finished converting!\n");
 
 	int status;
 	
@@ -921,10 +972,12 @@ int encryptData(char *str, int strLength)
 		return -1;
 	}
 
+	/*
 	printk("%d",m_plain_text);
 	printk("\n");
 	printk("%d",m_encrypted_text);
 	printk("\n");
+	*/
 
 	return status;
 }
@@ -967,9 +1020,9 @@ int cryptoEnd()
  */
 int secure()
 {
-	char all[500];
+	char all[600];
 
-	int loop;
+	//int loop;
 	strcpy(all, "\n");
 	strcat(all, separator);
 	strcat(all, "\n");
@@ -992,6 +1045,8 @@ int secure()
 	strcat(all, "\n");
 	strcat(all, t1SNR);
 	strcat(all, "\n");
+	strcat(all, t1Band);
+	strcat(all, "\n");
 
 	strcat(all, t2ID);
 	strcat(all, "\n");
@@ -1010,6 +1065,8 @@ int secure()
 	strcat(all, t2RSRQ);
 	strcat(all, "\n");
 	strcat(all, t2SNR);
+	strcat(all, "\n");
+	strcat(all, t2Band);
 	strcat(all, "\n");
 
 	strcat(all, t3ID);
@@ -1030,6 +1087,8 @@ int secure()
 	strcat(all, "\n");
 	strcat(all, t3SNR);
 	strcat(all, "\n");
+	strcat(all, t3Band);
+	strcat(all, "\n");
 
 	strcat(all, time);
 	strcat(all, "\n");
@@ -1037,10 +1096,12 @@ int secure()
 	strcat(all, separator);
 	strcat(all, "\n");
 
+	/*
 	for(loop = 0; loop < strlen(all); loop++)
 	{
 		m_plain_text[loop] = (uint8_t)(all[loop]);
 	}
+	*/
 
 	printk("End copying to all!\n");
 	printk("all: %s", all);
@@ -1048,9 +1109,6 @@ int secure()
 	encryptData(all, strlen(all));
 
 	//printk("Encrypt Ended!\n");
-
-	//encryptData(all, strlen(all));
-
 }
 
 /*
@@ -1634,6 +1692,204 @@ void getBand(void)
  * button 4 wakes the board up
 */
 
+void button1(void)
+{
+	printk("button 1 \n");
+	//blinkTimes(5);
+	//lsdir(disk_mount_pt);
+	//cfun_q();
+	
+	if (!atomic_get(&connected)) 
+	{
+		LOG_INF("Ignoring button press, not connected to network");
+		//Set tower read fail pin high
+		Tower_Read_Fail_Change();
+		return;
+	}
+
+	LOG_INF("Button 1 pressed, starting cell measurements");
+	start_cell_measurements();
+
+	getTime();
+
+	getBand();
+
+	//readCOPS();
+	//testCOPS();
+}
+
+void button2(void)
+{
+	printk("button 2 \n");
+	//print_cell_data();
+	//blinkTimes(5);
+
+	//print the collected towers
+	printk("Tower 1: %s\n", t1ID);
+	printk("Tower 2: %s\n", t2ID);
+	printk("Tower 3: %s\n", t3ID);
+	
+	//fix the strings so they print right
+	if((strcmp(t1ID, "empty") == 0))
+	{
+		strcpy(t1ID, "empty\n");
+	}
+
+	if((strcmp(t2ID, "empty") == 0))
+	{
+		strcpy(t2ID, "empty\n");
+	}
+
+	if((strcmp(t3ID, "empty") == 0))
+	{
+		strcpy(t3ID, "empty\n");
+	}
+
+	//get the current time
+	getTime();
+
+	//put all the strings into a text file
+	AppendString(testTxt, separator, strlen(separator), false);
+	//tower 1
+	AppendString(testTxt, t1ID, strlen(t1ID), false);
+	AppendCharacter(testTxt,'\n');
+	AppendString(testTxt, t1MCC, strlen(t1MCC), false);
+	AppendCharacter(testTxt,'\n');
+	AppendString(testTxt, t1MNC, strlen(t1MNC), false);
+	AppendCharacter(testTxt,'\n');
+	AppendString(testTxt, t1TAC, strlen(t1TAC), false);
+	AppendCharacter(testTxt,'\n');
+	AppendString(testTxt, t1TA, strlen(t1TA), false);
+	AppendCharacter(testTxt,'\n');
+	AppendString(testTxt, t1RSRP, strlen(t1RSRP), false);
+	AppendCharacter(testTxt,'\n');
+	AppendString(testTxt, t1RSRQ, strlen(t1RSRQ), false);
+	AppendCharacter(testTxt,'\n');
+	AppendString(testTxt, t1SNR, strlen(t1SNR), false);
+	AppendCharacter(testTxt,'\n');
+	AppendString(testTxt, t1Band, strlen(t1Band), false);
+	AppendCharacter(testTxt,'\n');
+
+	//tower 2
+	AppendString(testTxt, t2ID, strlen(t2ID), false);
+	AppendCharacter(testTxt,'\n');
+	AppendString(testTxt, t2MCC, strlen(t2MCC), false);
+	AppendCharacter(testTxt,'\n');
+	AppendString(testTxt, t2MNC, strlen(t2MNC), false);
+	AppendCharacter(testTxt,'\n');
+	AppendString(testTxt, t2TAC, strlen(t2TAC), false);
+	AppendCharacter(testTxt,'\n');
+	AppendString(testTxt, t2TA, strlen(t2TA), false);
+	AppendCharacter(testTxt,'\n');
+	AppendString(testTxt, t2RSRP, strlen(t2RSRP), false);
+	AppendCharacter(testTxt,'\n');
+	AppendString(testTxt, t2RSRQ, strlen(t2RSRQ), false);
+	AppendCharacter(testTxt,'\n');
+	AppendString(testTxt, t2SNR, strlen(t2SNR), false);
+	AppendCharacter(testTxt,'\n');
+	AppendString(testTxt, t2Band, strlen(t2Band), false);
+	AppendCharacter(testTxt,'\n');
+
+	//tower 3
+	AppendString(testTxt, t3ID, strlen(t3ID), false);
+	AppendCharacter(testTxt,'\n');
+	AppendString(testTxt, t3MCC, strlen(t3MCC), false);
+	AppendCharacter(testTxt,'\n');
+	AppendString(testTxt, t3MNC, strlen(t3MNC), false);
+	AppendCharacter(testTxt,'\n');
+	AppendString(testTxt, t3TAC, strlen(t3TAC), false);
+	AppendCharacter(testTxt,'\n');
+	AppendString(testTxt, t3TA, strlen(t3TA), false);
+	AppendCharacter(testTxt,'\n');
+	AppendString(testTxt, t3RSRP, strlen(t3RSRP), false);
+	AppendCharacter(testTxt,'\n');
+	AppendString(testTxt, t3RSRQ, strlen(t3RSRQ), false);
+	AppendCharacter(testTxt,'\n');
+	AppendString(testTxt, t3SNR, strlen(t3SNR), false);
+	AppendCharacter(testTxt,'\n');
+	AppendString(testTxt, t3Band, strlen(t3Band), false);
+	AppendCharacter(testTxt,'\n');
+	
+	AppendString(testTxt, time, strlen(time), false);
+	AppendString(testTxt, separator, strlen(separator), false);
+}
+
+void storeAES(void)
+{
+	/*
+	AppendString(secureTxt, separator, strlen(separator), false);
+	//tower 1
+	AppendString(secureTxt, t1ID, strlen(t1ID), false);
+	AppendCharacter(secureTxt,'\n');
+	AppendString(secureTxt, t1MCC, strlen(t1MCC), false);
+	AppendCharacter(secureTxt,'\n');
+	AppendString(secureTxt, t1MNC, strlen(t1MNC), false);
+	AppendCharacter(secureTxt,'\n');
+	AppendString(secureTxt, t1TAC, strlen(t1TAC), false);
+	AppendCharacter(secureTxt,'\n');
+	AppendString(secureTxt, t1TA, strlen(t1TA), false);
+	AppendCharacter(secureTxt,'\n');
+	AppendString(secureTxt, t1RSRP, strlen(t1RSRP), false);
+	AppendCharacter(secureTxt,'\n');
+	AppendString(secureTxt, t1RSRQ, strlen(t1RSRQ), false);
+	AppendCharacter(secureTxt,'\n');
+	AppendString(secureTxt, t1SNR, strlen(t1SNR), false);
+	AppendCharacter(secureTxt,'\n');
+	AppendString(secureTxt, t1Band, strlen(t1Band), false);
+	AppendCharacter(secureTxt,'\n');
+
+	//tower 2
+	AppendString(secureTxt, t2ID, strlen(t2ID), false);
+	AppendCharacter(secureTxt,'\n');
+	AppendString(secureTxt, t2MCC, strlen(t2MCC), false);
+	AppendCharacter(secureTxt,'\n');
+	AppendString(secureTxt, t2MNC, strlen(t2MNC), false);
+	AppendCharacter(secureTxt,'\n');
+	AppendString(secureTxt, t2TAC, strlen(t2TAC), false);
+	AppendCharacter(secureTxt,'\n');
+	AppendString(secureTxt, t2TA, strlen(t2TA), false);
+	AppendCharacter(secureTxt,'\n');
+	AppendString(secureTxt, t2RSRP, strlen(t2RSRP), false);
+	AppendCharacter(secureTxt,'\n');
+	AppendString(secureTxt, t2RSRQ, strlen(t2RSRQ), false);
+	AppendCharacter(secureTxt,'\n');
+	AppendString(secureTxt, t2SNR, strlen(t2SNR), false);
+	AppendCharacter(secureTxt,'\n');
+	AppendString(secureTxt, t2Band, strlen(t2Band), false);
+	AppendCharacter(secureTxt,'\n');
+
+	//tower 3
+	AppendString(secureTxt, t3ID, strlen(t3ID), false);
+	AppendCharacter(secureTxt,'\n');
+	AppendString(secureTxt, t3MCC, strlen(t3MCC), false);
+	AppendCharacter(secureTxt,'\n');
+	AppendString(secureTxt, t3MNC, strlen(t3MNC), false);
+	AppendCharacter(secureTxt,'\n');
+	AppendString(secureTxt, t3TAC, strlen(t3TAC), false);
+	AppendCharacter(secureTxt,'\n');
+	AppendString(secureTxt, t3TA, strlen(t3TA), false);
+	AppendCharacter(secureTxt,'\n');
+	AppendString(secureTxt, t3RSRP, strlen(t3RSRP), false);
+	AppendCharacter(secureTxt,'\n');
+	AppendString(secureTxt, t3RSRQ, strlen(t3RSRQ), false);
+	AppendCharacter(secureTxt,'\n');
+	AppendString(secureTxt, t3SNR, strlen(t3SNR), false);
+	AppendCharacter(secureTxt,'\n');
+	AppendString(secureTxt, t3Band, strlen(t3Band), false);
+	AppendCharacter(secureTxt,'\n');
+	
+	AppendString(secureTxt, time, strlen(time), false);
+	AppendString(secureTxt, separator, strlen(separator), false);
+	*/
+	//AppendString(testTxt, keyDeci, sizeof(keyDeci), false);
+	AppendCharacter(secureTxt, "\n");
+	AppendString(secureTxt, keyHex, strlen(keyHex), false);
+	AppendCharacter(secureTxt, "\n");
+	AppendString(secureTxt, m_encrypted_text, strlen(m_encrypted_text), false);
+	AppendCharacter(secureTxt, "\n");
+}
+
+
 //custom button handler
 static void button_handler(uint32_t button_states, uint32_t has_changed)
 {
@@ -1642,28 +1898,7 @@ static void button_handler(uint32_t button_states, uint32_t has_changed)
 	//if (has_changed & button_states & DK_BTN1_MSK) 
 	if (has_changed & button_states & Collect_Towers) 
 	{
-		printk("button 1 \n");
-		//blinkTimes(5);
-		//lsdir(disk_mount_pt);
-		//cfun_q();
-		
-		if (!atomic_get(&connected)) 
-		{
-			LOG_INF("Ignoring button press, not connected to network");
-			//Set tower read fail pin high
-			Tower_Read_Fail_Change();
-			return;
-		}
-
-		LOG_INF("Button 1 pressed, starting cell measurements");
-		start_cell_measurements();
-
-		getTime();
-
-		getBand();
-	
-		//readCOPS();
-		//testCOPS();
+		button1();
 	}
 
 	//this runs if the second button on the dev kit is pressed
@@ -1671,108 +1906,19 @@ static void button_handler(uint32_t button_states, uint32_t has_changed)
 	if (has_changed & button_states & DK_BTN2_MSK) 
 	//if (has_changed & button_states & Store_Towers)
 	{
-		printk("button 2 \n");
-		//print_cell_data();
-		//blinkTimes(5);
-
-		//print the collected towers
-		printk("Tower 1: %s\n", t1ID);
-		printk("Tower 2: %s\n", t2ID);
-		printk("Tower 3: %s\n", t3ID);
+		button2();
 		
-		//fix the strings so they print right
-		if((strcmp(t1ID, "empty") == 0))
-		{
-			strcpy(t1ID, "empty\n");
-		}
-
-		if((strcmp(t2ID, "empty") == 0))
-		{
-			strcpy(t2ID, "empty\n");
-		}
-
-		if((strcmp(t3ID, "empty") == 0))
-		{
-			strcpy(t3ID, "empty\n");
-		}
-
-		//get the current time
-		getTime();
-
-		//put all the strings into a text file
-		AppendString(testTxt, separator, strlen(separator), false);
-		//tower 1
-		AppendString(testTxt, t1ID, strlen(t1ID), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t1MCC, strlen(t1MCC), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t1MNC, strlen(t1MNC), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t1TAC, strlen(t1TAC), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t1TA, strlen(t1TA), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t1RSRP, strlen(t1RSRP), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t1RSRQ, strlen(t1RSRQ), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t1SNR, strlen(t1SNR), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t1Band, strlen(t1Band), false);
-		AppendCharacter(testTxt,'\n');
-
-		//tower 2
-		AppendString(testTxt, t2ID, strlen(t2ID), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t2MCC, strlen(t2MCC), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t2MNC, strlen(t2MNC), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t2TAC, strlen(t2TAC), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t2TA, strlen(t2TA), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t2RSRP, strlen(t2RSRP), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t2RSRQ, strlen(t2RSRQ), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t2SNR, strlen(t2SNR), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t2Band, strlen(t2Band), false);
-		AppendCharacter(testTxt,'\n');
-		
-		//tower 3
-		AppendString(testTxt, t3ID, strlen(t3ID), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t3MCC, strlen(t3MCC), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t3MNC, strlen(t3MNC), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t3TAC, strlen(t3TAC), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t3TA, strlen(t3TA), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t3RSRP, strlen(t3RSRP), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t3RSRQ, strlen(t3RSRQ), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t3SNR, strlen(t3SNR), false);
-		AppendCharacter(testTxt,'\n');
-		AppendString(testTxt, t3Band, strlen(t3Band), false);
-		AppendCharacter(testTxt,'\n');
-		
-		AppendString(testTxt, time, strlen(time), false);
-		AppendString(testTxt, separator, strlen(separator), false);
-
-		/*
 		secure();
 
 		startCrypto();
+
+		//printk("")
 
 		decryptData();
 
 		cryptoEnd();
 
+		/*
 		int loop;
 		for(loop = 0; loop < (sizeof(m_encrypted_text) / sizeof(m_encrypted_text[0])); loop++)
 		{
@@ -1780,7 +1926,10 @@ static void button_handler(uint32_t button_states, uint32_t has_changed)
 		}
 		printk("\n");
 		*/
-		
+
+		//store the encrypted data to disk
+		storeAES();
+
 		//clear the strings
 		empty();
 
