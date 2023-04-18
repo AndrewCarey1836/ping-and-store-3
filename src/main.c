@@ -127,6 +127,10 @@ static const struct gpio_dt_spec Tower_Connected = GPIO_DT_SPEC_GET(Tower_Connec
 #define timeSize 50
 char time[timeSize];
 
+//AES
+char keyDeci[128];
+char keyHex[128];
+
 //towers
 
 //tower 1
@@ -774,7 +778,7 @@ int generate_key(void)
 	/* Configure the key attributes */
 	psa_key_attributes_t key_attributes = PSA_KEY_ATTRIBUTES_INIT;
 
-	psa_set_key_usage_flags(&key_attributes, PSA_KEY_USAGE_ENCRYPT | PSA_KEY_USAGE_DECRYPT);
+	psa_set_key_usage_flags(&key_attributes, PSA_KEY_USAGE_ENCRYPT | PSA_KEY_USAGE_DECRYPT | PSA_KEY_USAGE_EXPORT);
 	psa_set_key_lifetime(&key_attributes, PSA_KEY_LIFETIME_VOLATILE);
 	psa_set_key_algorithm(&key_attributes, PSA_ALG_GCM);
 	psa_set_key_type(&key_attributes, PSA_KEY_TYPE_AES);
@@ -793,6 +797,51 @@ int generate_key(void)
 	psa_reset_key_attributes(&key_attributes);
 
 	//LOG_INF("AES key generated successfully!");
+	
+	uint8_t out[130];
+	uint32_t out_len = 128;
+	status = psa_export_key(key_handle, out, sizeof(out), &out_len);
+	if(status != APP_SUCCESS)
+	{
+		printk("Problem with export!\n");
+	}
+
+	int loop;
+	printk("Key in decimal: ");
+	char conD[5];
+	for(loop = 0; loop < out_len; loop++)
+	{
+		printk("%d ", out[loop]);
+		sprintf(conD,"%d", out[loop]);
+		if(loop == 0)
+		{
+			strcpy(keyDeci, conD);
+		}
+		else
+		{
+			strcat(keyDeci, conD);
+		}
+	}
+	printk("\n");
+	printk("Key in hex: ");
+	char conH[5];
+	for(loop = 0; loop < out_len; loop++)
+	{
+		printk("%02x ", out[loop]);
+		sprintf(conH,"%02x", out[loop]);
+		if(loop == 0)
+		{
+			strcpy(keyHex, conH);
+		}
+		else
+		{
+			strcat(keyHex, conH);
+		}
+	}
+	printk("\n");
+
+	printk("Key in hex: %s\n", keyHex);
+
 
 	return 0;
 }
@@ -1832,7 +1881,12 @@ void storeAES(void)
 	AppendString(secureTxt, time, strlen(time), false);
 	AppendString(secureTxt, separator, strlen(separator), false);
 	*/
-	AppendString(secureTxt, m_encrypted_text, sizeof(m_encrypted_text), false);
+	//AppendString(testTxt, keyDeci, sizeof(keyDeci), false);
+	AppendCharacter(secureTxt, "\n");
+	AppendString(secureTxt, keyHex, strlen(keyHex), false);
+	AppendCharacter(secureTxt, "\n");
+	AppendString(secureTxt, m_encrypted_text, strlen(m_encrypted_text), false);
+	AppendCharacter(secureTxt, "\n");
 }
 
 
