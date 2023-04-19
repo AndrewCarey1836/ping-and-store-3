@@ -1115,6 +1115,8 @@ int secure()
 	encryptData(all, strlen(all));
 
 	//printk("Encrypt Ended!\n");
+
+	return 0;
 }
 
 /*
