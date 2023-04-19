@@ -937,13 +937,13 @@ int startCrypto(void)
 
 	status = crypto_init();
 	if (status != 0) {
-		//LOG_INF(APP_ERROR_MESSAGE);
+		LOG_INF(APP_ERROR_MESSAGE);
 		//return -1;
 	}
 
 	status = generate_key();
 	if (status != 0) {
-		//LOG_INF(APP_ERROR_MESSAGE);
+		LOG_INF(APP_ERROR_MESSAGE);
 		//return -1;
 	}
 
@@ -956,11 +956,23 @@ int startCrypto(void)
 int encryptData(char *str, int strLength)
 {
 	//uint8_t * u = (uint8_t *)(str);
+	printk("data to encrypt: %s\n", str);
 	int loop = 0;
 	for(loop = 0; loop < strLength; loop++)
 	{
 		m_plain_text[loop] = (uint8_t *)(str[loop]);
 	}
+	printk("string in deci: ");
+	for(loop = 0; loop < sizeof(m_plain_text) / sizeof(m_plain_text[0]); loop++)
+	{
+		printk("%d ", m_plain_text[loop]);
+	}
+	printk("\nstring in deci: ");
+	for(loop = 0; loop < sizeof(m_plain_text) / sizeof(m_plain_text[0]); loop++)
+	{
+		printk("%02x ", m_plain_text[loop]);
+	}
+	printk("\n");
 	
 	printk("Finished converting!\n");
 
@@ -992,12 +1004,6 @@ int decryptData()
 		//LOG_INF(APP_ERROR_MESSAGE);
 		return -1;
 	}
-
-	printk("%d", m_plain_text);
-	printk("\n");
-	printk("%d", m_decrypted_text);
-	printk("\n");
-
 	return 0;
 }
 
@@ -1104,7 +1110,7 @@ int secure()
 	*/
 
 	printk("End copying to all!\n");
-	printk("all: %s", all);
+	//printk("all: %s", all);
 
 	encryptData(all, strlen(all));
 
@@ -1885,8 +1891,36 @@ void storeAES(void)
 	AppendCharacter(secureTxt, "\n");
 	AppendString(secureTxt, keyHex, strlen(keyHex), false);
 	AppendCharacter(secureTxt, "\n");
-	AppendString(secureTxt, m_encrypted_text, strlen(m_encrypted_text), false);
-	AppendCharacter(secureTxt, "\n");
+	char conH[5];
+	int loop;
+	char secInfo[NRF_CRYPTO_EXAMPLE_AES_MAX_TEXT_SIZE +
+				NRF_CRYPTO_EXAMPLE_AES_GCM_TAG_LENGTH];
+	//for(loop = 0; loop < sizeof(m_encrypted_text)/sizeof(m_encrypted_text[0]); loop++)
+	for(loop = 0; loop < sizeof(m_encrypted_text); loop++)
+	{
+		printk("%02x ", m_encrypted_text[loop]);
+		//sprintf(conH,"%02x", m_encrypted_text[loop]);
+		//printk("%d ", m_encrypted_text[loop]);
+		/*
+		sprintf(conH,"%d", m_encrypted_text[loop]);
+		if(loop == 0)
+		{
+			strcpy(secInfo, conH);
+		}
+		else
+		{
+			strcat(secInfo, conH);
+		}
+		*/
+	}
+	printk("\n");
+	for(loop = 0; loop < sizeof(m_encrypted_text); loop++)
+	{
+		printk("%02x ", m_decrypted_text[loop]);
+	}
+	printk("\n");
+	//AppendString(secureTxt, secInfo, strlen(secInfo), false);
+	//AppendCharacter(secureTxt, "\n");
 }
 
 
@@ -1916,6 +1950,9 @@ static void button_handler(uint32_t button_states, uint32_t has_changed)
 
 		decryptData();
 
+		//store the encrypted data to disk
+		storeAES();
+
 		cryptoEnd();
 
 		/*
@@ -1927,8 +1964,6 @@ static void button_handler(uint32_t button_states, uint32_t has_changed)
 		printk("\n");
 		*/
 
-		//store the encrypted data to disk
-		storeAES();
 
 		//clear the strings
 		empty();
