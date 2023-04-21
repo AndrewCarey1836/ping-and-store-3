@@ -702,13 +702,6 @@ void empty(void)
 #define APP_SUCCESS_MESSAGE "Example finished successfully!"
 #define APP_ERROR_MESSAGE "Example exited with error!"
 
-#define NRF_CRYPTO_EXAMPLE_AES_MAX_TEXT_SIZE (2000)
-#define NRF_CRYPTO_EXAMPLE_AES_BLOCK_SIZE (16)
-#define NRF_CRYPTO_EXAMPLE_AES_IV_SIZE (12)
-#define NRF_CRYPTO_EXAMPLE_AES_ADDITIONAL_SIZE (35)
-#define NRF_CRYPTO_EXAMPLE_AES_GCM_TAG_LENGTH (16)
-
-//prints the text both plain and cipher
 #define PRINT_HEX(p_label, p_text, len)				  \
 	({							  \
 		LOG_INF("---- %s (len: %u): ----", p_label, len); \
@@ -716,29 +709,47 @@ void empty(void)
 		LOG_INF("---- %s end  ----", p_label);		  \
 	})
 
-//I am not using this in production, just a temporary fix :p
+/* ====================================================================== */
+/*			Global variables/defines for the AES GCM mode example		  */
+
+#define NRF_CRYPTO_EXAMPLE_AES_MAX_TEXT_SIZE (100)
+#define NRF_CRYPTO_EXAMPLE_AES_BLOCK_SIZE (16)
+#define NRF_CRYPTO_EXAMPLE_AES_IV_SIZE (12)
+#define NRF_CRYPTO_EXAMPLE_AES_ADDITIONAL_SIZE (35)
+#define NRF_CRYPTO_EXAMPLE_AES_GCM_TAG_LENGTH (16)
+#define keySize 128
+
+#define hexStringSize 500
+#define keyStopSize 16
+
 /* AES sample IV, DO NOT USE IN PRODUCTION */
 static uint8_t m_iv[NRF_CRYPTO_EXAMPLE_AES_IV_SIZE];
 
-//the plain text message stored in an array of 8-bit integers
-uint8_t m_plain_text[NRF_CRYPTO_EXAMPLE_AES_MAX_TEXT_SIZE];
+/* Below text is used as plaintext for encryption/decryption */
+static uint8_t m_plain_text[NRF_CRYPTO_EXAMPLE_AES_MAX_TEXT_SIZE] ;
+/*
+= {
+	"Example string to demonstrate basic usage of AES GCM mode."
+};
+*/
 
-//additional plaintext array
+/* Below text is used as additional data for authentication */
 static uint8_t m_additional_data[NRF_CRYPTO_EXAMPLE_AES_ADDITIONAL_SIZE] = {
 	"Example string of additional data"
 };
 
-//array of encrypted text
 static uint8_t m_encrypted_text[NRF_CRYPTO_EXAMPLE_AES_MAX_TEXT_SIZE +
 				NRF_CRYPTO_EXAMPLE_AES_GCM_TAG_LENGTH];
 
-//array of decrypte text
 static uint8_t m_decrypted_text[NRF_CRYPTO_EXAMPLE_AES_MAX_TEXT_SIZE];
 
-//the key, I believe
-static psa_key_handle_t key_handle;
+char cipher_text[hexStringSize];
 
-//start the crypto functions
+char KEY[40];
+
+static psa_key_handle_t key_handle;
+/* ====================================================================== */
+
 int crypto_init(void)
 {
 	psa_status_t status;
@@ -752,8 +763,6 @@ int crypto_init(void)
 	return APP_SUCCESS;
 }
 
-//end the crypto fuctions
-//destroys the key
 int crypto_finish(void)
 {
 	psa_status_t status;
@@ -761,19 +770,18 @@ int crypto_finish(void)
 	/* Destroy the key handle */
 	status = psa_destroy_key(key_handle);
 	if (status != PSA_SUCCESS) {
-		//LOG_INF("psa_destroy_key failed! (Error: %d)", status);
+		LOG_INF("psa_destroy_key failed! (Error: %d)", status);
 		return APP_ERROR;
 	}
 
 	return APP_SUCCESS;
 }
 
-//generate the key
 int generate_key(void)
 {
 	psa_status_t status;
 
-	//LOG_INF("Generating random AES key...");
+	LOG_INF("Generating random AES key...");
 
 	/* Configure the key attributes */
 	psa_key_attributes_t key_attributes = PSA_KEY_ATTRIBUTES_INIT;
@@ -782,82 +790,38 @@ int generate_key(void)
 	psa_set_key_lifetime(&key_attributes, PSA_KEY_LIFETIME_VOLATILE);
 	psa_set_key_algorithm(&key_attributes, PSA_ALG_GCM);
 	psa_set_key_type(&key_attributes, PSA_KEY_TYPE_AES);
-	psa_set_key_bits(&key_attributes, 128);
+	psa_set_key_bits(&key_attributes, keySize);
+
+
 
 	/* Generate a random key. The key is not exposed to the application,
 	 * we can use it to encrypt/decrypt using the key handle
 	 */
 	status = psa_generate_key(&key_attributes, &key_handle);
 	if (status != PSA_SUCCESS) {
-		//LOG_INF("psa_generate_key failed! (Error: %d)", status);
+		LOG_INF("psa_generate_key failed! (Error: %d)", status);
 		return APP_ERROR;
 	}
 
 	/* After the key handle is acquired the attributes are not needed */
 	psa_reset_key_attributes(&key_attributes);
 
-	//LOG_INF("AES key generated successfully!");
-	
-	uint8_t out[130];
-	uint32_t out_len = 128;
-	status = psa_export_key(key_handle, out, sizeof(out), &out_len);
-	if(status != APP_SUCCESS)
-	{
-		printk("Problem with export!\n");
-	}
-
-	int loop;
-	printk("Key in decimal: ");
-	char conD[5];
-	for(loop = 0; loop < out_len; loop++)
-	{
-		printk("%d ", out[loop]);
-		sprintf(conD,"%d", out[loop]);
-		if(loop == 0)
-		{
-			strcpy(keyDeci, conD);
-		}
-		else
-		{
-			strcat(keyDeci, conD);
-		}
-	}
-	printk("\n");
-	printk("Key in hex: ");
-	char conH[5];
-	for(loop = 0; loop < out_len; loop++)
-	{
-		printk("%02x ", out[loop]);
-		sprintf(conH,"%02x", out[loop]);
-		if(loop == 0)
-		{
-			strcpy(keyHex, conH);
-		}
-		else
-		{
-			strcat(keyHex, conH);
-		}
-	}
-	printk("\n");
-
-	printk("Key in hex: %s\n", keyHex);
-
+	LOG_INF("AES key generated successfully!");
 
 	return 0;
 }
 
-//encrypt the data stored in the plaintext array
 int encrypt_aes_gcm(void)
 {
 	uint32_t output_len;
 	psa_status_t status;
 
-	//LOG_INF("Encrypting using AES GCM MODE...");
+	LOG_INF("Encrypting using AES GCM MODE...");
 
 	/* Generate a random IV */
 	status = psa_generate_random(m_iv, NRF_CRYPTO_EXAMPLE_AES_IV_SIZE);
 	if (status != PSA_SUCCESS) {
-		//LOG_INF("psa_generate_random failed! (Error: %d)", status);
+		LOG_INF("psa_generate_random failed! (Error: %d)", status);
 		return APP_ERROR;
 	}
 
@@ -874,11 +838,11 @@ int encrypt_aes_gcm(void)
 				  sizeof(m_encrypted_text),
 				  &output_len);
 	if (status != PSA_SUCCESS) {
-		//LOG_INF("psa_aead_encrypt failed! (Error: %d)", status);
+		LOG_INF("psa_aead_encrypt failed! (Error: %d)", status);
 		return APP_ERROR;
 	}
 
-	//LOG_INF("Encryption successful!");
+	LOG_INF("Encryption successful!");
 	PRINT_HEX("IV", m_iv, sizeof(m_iv));
 	PRINT_HEX("Additional data", m_additional_data, sizeof(m_additional_data));
 	PRINT_HEX("Plaintext", m_plain_text, sizeof(m_plain_text));
@@ -887,13 +851,12 @@ int encrypt_aes_gcm(void)
 	return APP_SUCCESS;
 }
 
-//decrypt the text stored in the cipher text array
 int decrypt_aes_gcm(void)
 {
 	uint32_t output_len;
 	psa_status_t status;
 
-	//LOG_INF("Decrypting using AES GCM MODE...");
+	LOG_INF("Decrypting using AES GCM MODE...");
 
 	/* Decrypt and authenticate the encrypted data */
 	status = psa_aead_decrypt(key_handle,
@@ -908,7 +871,7 @@ int decrypt_aes_gcm(void)
 				  sizeof(m_decrypted_text),
 				  &output_len);
 	if (status != PSA_SUCCESS) {
-		//LOG_INF("psa_aead_decrypt failed! (Error: %d)", status);
+		LOG_INF("psa_aead_decrypt failed! (Error: %d)", status);
 		return APP_ERROR;
 	}
 
@@ -916,208 +879,221 @@ int decrypt_aes_gcm(void)
 
 	/* Check the validity of the decryption */
 	if (memcmp(m_decrypted_text, m_plain_text, NRF_CRYPTO_EXAMPLE_AES_MAX_TEXT_SIZE) != 0) {
-		//LOG_INF("Error: Decrypted text doesn't match the plaintext");
+		LOG_INF("Error: Decrypted text doesn't match the plaintext");
 		return APP_ERROR;
 	}
 
-	//LOG_INF("Decryption and authentication successful!");
+	LOG_INF("Decryption and authentication successful!");
 
 	return APP_SUCCESS;
 }
 
-/* 
-*	custom crypto
-*	These call the above commands
-*/
-
-//start crypto
-int startCrypto(void)
+int start(void)
 {
 	int status;
 
+	LOG_INF("Starting AES-GCM example...");
+
 	status = crypto_init();
-	if (status != 0) {
+	if (status != APP_SUCCESS) {
 		LOG_INF(APP_ERROR_MESSAGE);
-		//return -1;
+		return APP_ERROR;
 	}
 
 	status = generate_key();
-	if (status != 0) {
+	if (status != APP_SUCCESS) {
 		LOG_INF(APP_ERROR_MESSAGE);
-		//return -1;
+		return APP_ERROR;
 	}
 
-
-	return 0;
-}
-
-//secure the data
-//convert a string input into an array of integers
-int encryptData(char *str, int strLength)
-{
-	//uint8_t * u = (uint8_t *)(str);
-	printk("data to encrypt: %s\n", str);
-	int loop = 0;
-	for(loop = 0; loop < strLength; loop++)
+	uint8_t out[keySize + 1];
+	uint32_t out_len = keySize;
+	status = psa_export_key(key_handle, out, sizeof(out), &out_len);
+	if(status != APP_SUCCESS)
 	{
-		m_plain_text[loop] = (uint8_t *)(str[loop]);
+		printk("Problem with export!\n");
 	}
-	printk("string in deci: ");
-	for(loop = 0; loop < sizeof(m_plain_text) / sizeof(m_plain_text[0]); loop++)
-	{
-		printk("%d ", m_plain_text[loop]);
-	}
-	printk("\nstring in deci: ");
-	for(loop = 0; loop < sizeof(m_plain_text) / sizeof(m_plain_text[0]); loop++)
-	{
-		printk("%02x ", m_plain_text[loop]);
-	}
-	printk("\n");
-	
-	printk("Finished converting!\n");
-
-	int status;
-	
-	status = encrypt_aes_gcm();
-	if (status != 0) {
-		//LOG_INF(APP_ERROR_MESSAGE);
-		return -1;
-	}
-
 	/*
-	printk("%d",m_plain_text);
-	printk("\n");
-	printk("%d",m_encrypted_text);
+	printk("KEY DECI: ");
+	int loop;
+	for(loop = 0; loop < out_len; loop++)
+	{
+		printk("%d ", out[loop]);
+	}
 	printk("\n");
 	*/
+	printk("\nKEY: ");
+	int loop;
+	for(loop = 0; loop < out_len; loop++)
+	{
+		printk("%02X ", out[loop]);
+	}
+	printk("\n");
 
-	return status;
+	//Convert Key to char
+	
+	char keyCon[keySize + 1][2+1] = {0};
+	char help[keySize + 1][3];
+	const char HEX[16] = "0123456789ABCDEF";
+	for(loop = 0; loop < keySize + 1; loop++)
+	{
+		keyCon[loop][0] = HEX[(out[loop] & 0xF0) >> 4];
+		keyCon[loop][1] = HEX[(out[loop] & 0x0F) >> 0];
+
+		strcpy(help[loop], keyCon[loop]);
+	}
+	char str[hexStringSize];
+	char str3[3];
+	strcpy(str," ");
+	for(loop = 0; loop < keySize; loop++)
+	{
+		sprintf(str3, "%s", help[loop]);
+		strcat(str,str3);
+	}
+
+	if(str[0] == ' ')
+	{
+		//remove the space at the beginning
+		memmove(str,str+1,strlen(str));
+	}
+
+	//use only the parts required, get rid of garbage
+	char key[35];
+	memset(key,'\0',sizeof(key));
+	strncpy(key, str, 32);
+
+	printk("key: %s\n", key);
+
+	strcpy(KEY, key);
+	
+
+	return APP_SUCCESS;
 }
 
-//decrypt the cipher text
-int decryptData()
+void createString(char *str, unsigned len)
+{
+	int loop;
+	char newStr[len];
+	strcpy(newStr, str);
+	for(loop = 0; loop < len; loop++)
+	{
+		m_plain_text[loop] = (uint8_t)(newStr[loop]);
+	}
+}
+
+int secureString(void)
 {
 	int status;
-
-	status = decrypt_aes_gcm();
-	if (status != 0) {
-		//LOG_INF(APP_ERROR_MESSAGE);
-		return -1;
+	status = encrypt_aes_gcm();
+	if (status != APP_SUCCESS) {
+		LOG_INF(APP_ERROR_MESSAGE);
+		return APP_ERROR;
 	}
-	return 0;
+	return APP_SUCCESS;
 }
 
-//delete the key
-int cryptoEnd()
+int decrypt(void)
+{
+	int status;
+	status = decrypt_aes_gcm();
+	if (status != APP_SUCCESS) {
+		LOG_INF(APP_ERROR_MESSAGE);
+		return APP_ERROR;
+	}
+	return APP_SUCCESS;
+}
+
+int deleteKey(void)
 {
 	int status;
 	status = crypto_finish();
-	if (status != 0) {
-		//LOG_INF(APP_ERROR_MESSAGE);
-		return -1;
+	if (status != APP_SUCCESS) 
+	{
+		LOG_INF(APP_ERROR_MESSAGE);
+		return APP_ERROR;
+	}
+	printk("\n");
+	printk("Deleting key\n");
+	return APP_SUCCESS;
+}
+
+void getCipher()
+{
+	printk("\n");
+	printk("Cipher HEX: ");
+	char out[NRF_CRYPTO_EXAMPLE_AES_MAX_TEXT_SIZE + NRF_CRYPTO_EXAMPLE_AES_GCM_TAG_LENGTH][2+1] = {0};
+	char help[NRF_CRYPTO_EXAMPLE_AES_MAX_TEXT_SIZE + NRF_CRYPTO_EXAMPLE_AES_GCM_TAG_LENGTH][3];
+	int loop;
+	const char HEX[16] = "0123456789ABCDEF";
+	for(loop = 0; loop < NRF_CRYPTO_EXAMPLE_AES_MAX_TEXT_SIZE + NRF_CRYPTO_EXAMPLE_AES_GCM_TAG_LENGTH; loop++)
+	{
+		printk("%02X ", m_encrypted_text[loop]);
+
+		out[loop][0] = HEX[(m_encrypted_text[loop] & 0xF0) >> 4];
+		out[loop][1] = HEX[(m_encrypted_text[loop] & 0x0F) >> 0];
+
+		strcpy(help[loop], out[loop]);
+	}
+	printk("\n");
+	char str[hexStringSize];
+	char str3[3];
+	strcpy(str," ");
+	for(loop = 0; loop < NRF_CRYPTO_EXAMPLE_AES_MAX_TEXT_SIZE + NRF_CRYPTO_EXAMPLE_AES_GCM_TAG_LENGTH; loop++)
+	{
+		sprintf(str3, "%s", help[loop]);
+		strcat(str,str3);
 	}
 
-	return 0;
+	if(str[0] == ' ')
+	{
+		//remove the space at the beginning
+		memmove(str,str+1,strlen(str));
+	}
+
+	//printk("cipher: %s\n", str);
+
+	strcpy(cipher_text, str);
+
+
+}
+
+void encryptString(char* str)
+{	
+	//put a string in plain text array
+	createString(str, strlen(str));
+
+	//secure the string
+	secureString();
+
+	//decrypt the cipher text
+	decrypt();
+
+	//get the cipher tex
+	getCipher();
+
+	//get the encrypted string
+	printk("cipher text: %s\n", cipher_text);
+
+	//erase the contents of the plain text
+	memset(m_plain_text, 0, sizeof(m_plain_text));
+
+}
+
+void clearCipher()
+{
+	memset(cipher_text, 0, sizeof(cipher_text));
+}
+
+void clearCrypto()
+{
+	memset(KEY, 0, sizeof(KEY));
 }
 
 /**
  * print all the tower data to a giant AES string
  * Bugged as of now
  */
-int secure()
-{
-	char all[600];
 
-	//int loop;
-	strcpy(all, "\n");
-	strcat(all, separator);
-	strcat(all, "\n");
-
-	strcat(all, t1ID);
-	strcat(all, "\n");
-	strcat(all, t1MCC);
-	strcat(all, "\n");
-	strcat(all, t1MNC);
-	strcat(all, "\n");
-	strcat(all, t1TAC);
-	strcat(all, "\n");
-	strcat(all, t1TA);
-	strcat(all, "\n");
-	strcat(all, t1COPS);
-	strcat(all, "\n");
-	strcat(all, t1RSRP);
-	strcat(all, "\n");
-	strcat(all, t1RSRQ);
-	strcat(all, "\n");
-	strcat(all, t1SNR);
-	strcat(all, "\n");
-	strcat(all, t1Band);
-	strcat(all, "\n");
-
-	strcat(all, t2ID);
-	strcat(all, "\n");
-	strcat(all, t2MCC);
-	strcat(all, "\n");
-	strcat(all, t2MNC);
-	strcat(all, "\n");
-	strcat(all, t2TAC);
-	strcat(all, "\n");
-	strcat(all, t2TA);
-	strcat(all, "\n");
-	strcat(all, t2COPS);
-	strcat(all, "\n");
-	strcat(all, t2RSRP);
-	strcat(all, "\n");
-	strcat(all, t2RSRQ);
-	strcat(all, "\n");
-	strcat(all, t2SNR);
-	strcat(all, "\n");
-	strcat(all, t2Band);
-	strcat(all, "\n");
-
-	strcat(all, t3ID);
-	strcat(all, "\n");
-	strcat(all, t3MCC);
-	strcat(all, "\n");
-	strcat(all, t3MNC);
-	strcat(all, "\n");
-	strcat(all, t3TAC);
-	strcat(all, "\n");
-	strcat(all, t3TA);
-	strcat(all, "\n");
-	strcat(all, t3COPS);
-	strcat(all, "\n");
-	strcat(all, t3RSRP);
-	strcat(all, "\n");
-	strcat(all, t3RSRQ);
-	strcat(all, "\n");
-	strcat(all, t3SNR);
-	strcat(all, "\n");
-	strcat(all, t3Band);
-	strcat(all, "\n");
-
-	strcat(all, time);
-	strcat(all, "\n");
-
-	strcat(all, separator);
-	strcat(all, "\n");
-
-	/*
-	for(loop = 0; loop < strlen(all); loop++)
-	{
-		m_plain_text[loop] = (uint8_t)(all[loop]);
-	}
-	*/
-
-	printk("End copying to all!\n");
-	//printk("all: %s", all);
-
-	encryptData(all, strlen(all));
-
-	//printk("Encrypt Ended!\n");
-
-	return 0;
-}
 
 /*
 * Multicell Location
@@ -1824,105 +1800,170 @@ void button2(void)
 
 void storeAES(void)
 {
-	/*
+	start();
+
 	AppendString(secureTxt, separator, strlen(separator), false);
+	AppendString(secureTxt, "\n", strlen("\n"), false);
+	
+	//key in plain text
+	AppendString(testTxt, KEY, strlen(KEY), false);
+	AppendString(secureTxt, "\n", strlen("\n"), false);
+
 	//tower 1
-	AppendString(secureTxt, t1ID, strlen(t1ID), false);
-	AppendCharacter(secureTxt,'\n');
-	AppendString(secureTxt, t1MCC, strlen(t1MCC), false);
-	AppendCharacter(secureTxt,'\n');
-	AppendString(secureTxt, t1MNC, strlen(t1MNC), false);
-	AppendCharacter(secureTxt,'\n');
-	AppendString(secureTxt, t1TAC, strlen(t1TAC), false);
-	AppendCharacter(secureTxt,'\n');
-	AppendString(secureTxt, t1TA, strlen(t1TA), false);
-	AppendCharacter(secureTxt,'\n');
-	AppendString(secureTxt, t1RSRP, strlen(t1RSRP), false);
-	AppendCharacter(secureTxt,'\n');
-	AppendString(secureTxt, t1RSRQ, strlen(t1RSRQ), false);
-	AppendCharacter(secureTxt,'\n');
-	AppendString(secureTxt, t1SNR, strlen(t1SNR), false);
-	AppendCharacter(secureTxt,'\n');
-	AppendString(secureTxt, t1Band, strlen(t1Band), false);
-	AppendCharacter(secureTxt,'\n');
+	encryptString(t1ID);
+	AppendString(secureTxt, cipher_text, strlen(cipher_text), false);
+	clearCipher();
+	AppendString(secureTxt, "\n", strlen("\n"), false);
+
+	//tower 1 MCC
+	encryptString(t1MCC);
+	AppendString(secureTxt, cipher_text, strlen(cipher_text), false);
+	clearCipher();
+	AppendString(secureTxt, "\n", strlen("\n"), false);
+
+	//tower 1 MNC
+	encryptString(t1MNC);
+	AppendString(secureTxt, cipher_text, strlen(cipher_text), false);
+	clearCipher();
+	AppendString(secureTxt, "\n", strlen("\n"), false);
+
+	//tower 1 TAC
+	encryptString(t1TAC);
+	AppendString(secureTxt, cipher_text, strlen(cipher_text), false);
+	clearCipher();
+	AppendString(secureTxt, "\n", strlen("\n"), false);
+
+	//tower 1 TA
+	encryptString(t1TA);
+	AppendString(secureTxt, cipher_text, strlen(cipher_text), false);
+	clearCipher();
+	AppendString(secureTxt, "\n", strlen("\n"), false);
+
+	//tower 1 RSRP
+	encryptString(t1RSRP);
+	AppendString(secureTxt, cipher_text, strlen(cipher_text), false);
+	clearCipher();
+	AppendString(secureTxt, "\n", strlen("\n"), false);
+
+	//tower 1 RSRQ
+	encryptString(t1RSRQ);
+	AppendString(secureTxt, cipher_text, strlen(cipher_text), false);
+	clearCipher();
+	AppendString(secureTxt, "\n", strlen("\n"), false);
+
+	//tower 1 Band
+	encryptString(t1Band);
+	AppendString(secureTxt, cipher_text, strlen(cipher_text), false);
+	clearCipher();
+	AppendString(secureTxt, "\n", strlen("\n"), false);
 
 	//tower 2
-	AppendString(secureTxt, t2ID, strlen(t2ID), false);
-	AppendCharacter(secureTxt,'\n');
-	AppendString(secureTxt, t2MCC, strlen(t2MCC), false);
-	AppendCharacter(secureTxt,'\n');
-	AppendString(secureTxt, t2MNC, strlen(t2MNC), false);
-	AppendCharacter(secureTxt,'\n');
-	AppendString(secureTxt, t2TAC, strlen(t2TAC), false);
-	AppendCharacter(secureTxt,'\n');
-	AppendString(secureTxt, t2TA, strlen(t2TA), false);
-	AppendCharacter(secureTxt,'\n');
-	AppendString(secureTxt, t2RSRP, strlen(t2RSRP), false);
-	AppendCharacter(secureTxt,'\n');
-	AppendString(secureTxt, t2RSRQ, strlen(t2RSRQ), false);
-	AppendCharacter(secureTxt,'\n');
-	AppendString(secureTxt, t2SNR, strlen(t2SNR), false);
-	AppendCharacter(secureTxt,'\n');
-	AppendString(secureTxt, t2Band, strlen(t2Band), false);
-	AppendCharacter(secureTxt,'\n');
+	encryptString(t2ID);
+	AppendString(secureTxt, cipher_text, strlen(cipher_text), false);
+	clearCipher();
+	AppendString(secureTxt, "\n", strlen("\n"), false);
+
+	//tower 2 MCC
+	encryptString(t2MCC);
+	AppendString(secureTxt, cipher_text, strlen(cipher_text), false);
+	clearCipher();
+	AppendString(secureTxt, "\n", strlen("\n"), false);
+
+	//tower 2 MNC
+	encryptString(t2MNC);
+	AppendString(secureTxt, cipher_text, strlen(cipher_text), false);
+	clearCipher();
+	AppendString(secureTxt, "\n", strlen("\n"), false);
+
+	//tower 2 TAC
+	encryptString(t2TAC);
+	AppendString(secureTxt, cipher_text, strlen(cipher_text), false);
+	clearCipher();
+	AppendString(secureTxt, "\n", strlen("\n"), false);
+
+	//tower 2 TA
+	encryptString(t2TA);
+	AppendString(secureTxt, cipher_text, strlen(cipher_text), false);
+	clearCipher();
+	AppendString(secureTxt, "\n", strlen("\n"), false);
+
+	//tower 2 RSRP
+	encryptString(t2RSRP);
+	AppendString(secureTxt, cipher_text, strlen(cipher_text), false);
+	clearCipher();
+	AppendString(secureTxt, "\n", strlen("\n"), false);
+
+	//tower 2 RSRQ
+	encryptString(t2RSRQ);
+	AppendString(secureTxt, cipher_text, strlen(cipher_text), false);
+	clearCipher();
+	AppendString(secureTxt, "\n", strlen("\n"), false);
+
+	//tower 2 Band
+	encryptString(t2Band);
+	AppendString(secureTxt, cipher_text, strlen(cipher_text), false);
+	clearCipher();
+	AppendString(secureTxt, "\n", strlen("\n"), false);
 
 	//tower 3
-	AppendString(secureTxt, t3ID, strlen(t3ID), false);
-	AppendCharacter(secureTxt,'\n');
-	AppendString(secureTxt, t3MCC, strlen(t3MCC), false);
-	AppendCharacter(secureTxt,'\n');
-	AppendString(secureTxt, t3MNC, strlen(t3MNC), false);
-	AppendCharacter(secureTxt,'\n');
-	AppendString(secureTxt, t3TAC, strlen(t3TAC), false);
-	AppendCharacter(secureTxt,'\n');
-	AppendString(secureTxt, t3TA, strlen(t3TA), false);
-	AppendCharacter(secureTxt,'\n');
-	AppendString(secureTxt, t3RSRP, strlen(t3RSRP), false);
-	AppendCharacter(secureTxt,'\n');
-	AppendString(secureTxt, t3RSRQ, strlen(t3RSRQ), false);
-	AppendCharacter(secureTxt,'\n');
-	AppendString(secureTxt, t3SNR, strlen(t3SNR), false);
-	AppendCharacter(secureTxt,'\n');
-	AppendString(secureTxt, t3Band, strlen(t3Band), false);
-	AppendCharacter(secureTxt,'\n');
-	
-	AppendString(secureTxt, time, strlen(time), false);
+	encryptString(t3ID);
+	AppendString(secureTxt, cipher_text, strlen(cipher_text), false);
+	clearCipher();
+	AppendString(secureTxt, "\n", strlen("\n"), false);
+
+	//tower 3 MCC
+	encryptString(t3MCC);
+	AppendString(secureTxt, cipher_text, strlen(cipher_text), false);
+	clearCipher();
+	AppendString(secureTxt, "\n", strlen("\n"), false);
+
+	//tower 3 MNC
+	encryptString(t3MNC);
+	AppendString(secureTxt, cipher_text, strlen(cipher_text), false);
+	clearCipher();
+	AppendString(secureTxt, "\n", strlen("\n"), false);
+
+	//tower3 TAC
+	encryptString(t3TAC);
+	AppendString(secureTxt, cipher_text, strlen(cipher_text), false);
+	clearCipher();
+	AppendString(secureTxt, "\n", strlen("\n"), false);
+
+	//tower 3 TA
+	encryptString(t3TA);
+	AppendString(secureTxt, cipher_text, strlen(cipher_text), false);
+	clearCipher();
+	AppendString(secureTxt, "\n", strlen("\n"), false);
+
+	//tower 3 RSRP
+	encryptString(t3RSRP);
+	AppendString(secureTxt, cipher_text, strlen(cipher_text), false);
+	clearCipher();
+	AppendString(secureTxt, "\n", strlen("\n"), false);
+
+
+	//tower 3 RSRQ
+	encryptString(t3RSRQ);
+	AppendString(secureTxt, cipher_text, strlen(cipher_text), false);
+	clearCipher();
+	AppendString(secureTxt, "\n", strlen("\n"), false);
+
+	//tower 3 Band
+	encryptString(t3Band);
+	AppendString(secureTxt, cipher_text, strlen(cipher_text), false);
+	clearCipher();
+	AppendString(secureTxt, "\n", strlen("\n"), false);
+
+
 	AppendString(secureTxt, separator, strlen(separator), false);
-	*/
-	//AppendString(testTxt, keyDeci, sizeof(keyDeci), false);
-	AppendCharacter(secureTxt, "\n");
-	AppendString(secureTxt, keyHex, strlen(keyHex), false);
-	AppendCharacter(secureTxt, "\n");
-	char conH[5];
-	int loop;
-	char secInfo[NRF_CRYPTO_EXAMPLE_AES_MAX_TEXT_SIZE +
-				NRF_CRYPTO_EXAMPLE_AES_GCM_TAG_LENGTH];
-	//for(loop = 0; loop < sizeof(m_encrypted_text)/sizeof(m_encrypted_text[0]); loop++)
-	for(loop = 0; loop < sizeof(m_encrypted_text); loop++)
-	{
-		printk("%02x ", m_encrypted_text[loop]);
-		//sprintf(conH,"%02x", m_encrypted_text[loop]);
-		//printk("%d ", m_encrypted_text[loop]);
-		/*
-		sprintf(conH,"%d", m_encrypted_text[loop]);
-		if(loop == 0)
-		{
-			strcpy(secInfo, conH);
-		}
-		else
-		{
-			strcat(secInfo, conH);
-		}
-		*/
-	}
-	printk("\n");
-	for(loop = 0; loop < sizeof(m_encrypted_text); loop++)
-	{
-		printk("%02x ", m_decrypted_text[loop]);
-	}
-	printk("\n");
-	//AppendString(secureTxt, secInfo, strlen(secInfo), false);
-	//AppendCharacter(secureTxt, "\n");
+	AppendString(secureTxt, "\n", strlen("\n"), false);
+
+	//clear the key
+	clearCrypto();
+
+	//finish the crypto stuff
+	deleteKey();
+	
 }
 
 
@@ -1942,30 +1983,11 @@ static void button_handler(uint32_t button_states, uint32_t has_changed)
 	if (has_changed & button_states & DK_BTN2_MSK) 
 	//if (has_changed & button_states & Store_Towers)
 	{
+		//regular button actions
 		button2();
 		
-		secure();
-
-		startCrypto();
-
-		//printk("")
-
-		decryptData();
-
-		//store the encrypted data to disk
-		storeAES();
-
-		cryptoEnd();
-
-		/*
-		int loop;
-		for(loop = 0; loop < (sizeof(m_encrypted_text) / sizeof(m_encrypted_text[0])); loop++)
-		{
-			printk("%d", m_encrypted_text[loop]);
-		}
-		printk("\n");
-		*/
-
+		//security file
+		//storeAES();
 
 		//clear the strings
 		empty();
