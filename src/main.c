@@ -1598,6 +1598,49 @@ void getTime(void)
     //printk("Modem response:\n%s", response);
 }
 
+void getMultipleTowers(void)
+{
+	int err;
+    char response[800];
+	strcpy(response, " ");
+	//clock command
+	err = nrf_modem_at_cmd(response, sizeof(response), "AT%%NCELLMEAS=3,4");
+    if (err) 
+	{
+        //error
+    }
+
+	printk("rep: %s", response);
+
+	int dataSize = 800;
+	char data[dataSize];
+	strcpy(data,response);
+	int data_length = strlen(data);
+
+	int loop;
+	for(loop = 0; loop < data_length; loop++)
+	{
+	
+		//only want A-Z, a-z, 0-9, and newline characters
+		if( (data[loop] >= 'a' && data[loop] <= 'z') 
+		||  (data[loop] >= 'A' && data[loop] <= 'Z') 
+		||  (data[loop] >= '0' && data[loop] <= '9')
+		||  (data[loop] == '\n') ||  (data[loop] == '/') 
+		||  (data[loop] == ':') || (data[loop] == '+'))
+		{
+			//printk("%c", data[loop]);
+		}
+		//set all other characters to underscore
+		else
+		{
+			data[loop] = '_';
+		}
+	}
+	printk("Towers: %s", data);
+
+    //printk("Modem response:\n%s", response);
+}
+
 //get the band info
 //hopefully it works
 void getBand(void)
@@ -1697,6 +1740,8 @@ void button1(void)
 	getTime();
 
 	getBand();
+
+	getMultipleTowers();
 
 	//readCOPS();
 	//testCOPS();
