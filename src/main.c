@@ -174,20 +174,22 @@ char t3Band[timeSize];
 //a very lazy way of implementing,
 //but i need it to work quick
 
-//AT&T Mobility
-static const char *att_mobility_cops="310410";
-
 //T-Mobile
 static const char *t_mobile_cops = "310260";
 
 //AT&T FirstNet
 static const char *firstnet_cops = "313100";
 
-//Verizon
-//static const char *verizon = "311480";
+//AT&T Mobility
+static const char *att_mobility_cops="310410";
 
-//other
-static const char *verizon = "311490";
+//iconnect
+static const char *iconnect_cops = "311480";
+
+//Verizon
+static const char *verizon_cops = "311490";
+
+char currCOPS[towerSizeCOPS];
 
 
 //This is part of the multicell sample
@@ -1409,6 +1411,7 @@ static void print_cell_data(void)
 	sprintf(newMNC,"%03d",cell_data.current_cell.mnc);
 	strcpy(newCOPS,newMCC);
 	strcat(newCOPS,newMNC);
+	strcpy(currCOPS, newCOPS);
 	
 	//make sure timing advance is a valid number
 	if(cell_data.current_cell.timing_advance != 65535)
@@ -1427,6 +1430,32 @@ static void print_cell_data(void)
 
 			//get the connection value
 			//getSNR(1);
+			//set the value of COPS
+			//really lazy implementation but it works for the area
+			if(strstr(currCOPS, att_mobility_cops) != NULL)
+			{
+				changeCOPS(t_mobile_cops, strlen(t_mobile_cops));
+			}
+			else if (strstr(currCOPS, t_mobile_cops) != NULL)
+			{
+				changeCOPS(firstnet_cops, strlen(firstnet_cops));
+			}
+			else if(strstr(currCOPS, firstnet_cops) != NULL)
+			{
+				changeCOPS(att_mobility_cops, strlen(att_mobility_cops));
+			}
+			else if(strstr(currCOPS, iconnect_cops) != NULL)
+			{
+				changeCOPS(verizon_cops, strlen(verizon_cops));
+			}
+			else if(strstr(currCOPS, verizon_cops) != NULL)
+			{
+				changeCOPS(iconnect_cops, strlen(iconnect_cops));
+			}
+			else
+			{
+				// leave COPS
+			}
 		}
 
 		else if((strstr(t2ID, "empty") != NULL)  && (!(strstr(t1COPS, newCOPS) != NULL)))
@@ -1442,6 +1471,32 @@ static void print_cell_data(void)
 			strcat(t2COPS,t2MNC);
 
 			//getSNR(2);
+			//set the value of COPS
+			//really lazy implementation but it works for the area
+			if(strstr(currCOPS, att_mobility_cops) != NULL)
+			{
+				changeCOPS(t_mobile_cops, strlen(t_mobile_cops));
+			}
+			else if (strstr(currCOPS, t_mobile_cops) != NULL)
+			{
+				changeCOPS(firstnet_cops, strlen(firstnet_cops));
+			}
+			else if(strstr(currCOPS, firstnet_cops) != NULL)
+			{
+				changeCOPS(att_mobility_cops, strlen(att_mobility_cops));
+			}
+			else if(strstr(currCOPS, iconnect_cops) != NULL)
+			{
+				changeCOPS(verizon_cops, strlen(verizon_cops));
+			}
+			else if(strstr(currCOPS, verizon_cops) != NULL)
+			{
+				changeCOPS(iconnect_cops, strlen(iconnect_cops));
+			}
+			else
+			{
+				// leave COPS
+			}
 		}
 
 		else if((strstr(t3ID, "empty") != NULL) && (!(strstr(t1COPS, newCOPS) != NULL)) && (!(strstr(t2COPS, newCOPS) != NULL)))
@@ -1457,12 +1512,64 @@ static void print_cell_data(void)
 			strcat(t3COPS,t3MNC);
 
 			//getSNR(3);
+			//set the value of COPS
+			//really lazy implementation but it works for the area
+			if(strstr(currCOPS, att_mobility_cops) != NULL)
+			{
+				changeCOPS(t_mobile_cops, strlen(t_mobile_cops));
+			}
+			else if (strstr(currCOPS, t_mobile_cops) != NULL)
+			{
+				changeCOPS(firstnet_cops, strlen(firstnet_cops));
+			}
+			else if(strstr(currCOPS, firstnet_cops) != NULL)
+			{
+				changeCOPS(att_mobility_cops, strlen(att_mobility_cops));
+			}
+			else if(strstr(currCOPS, iconnect_cops) != NULL)
+			{
+				changeCOPS(verizon_cops, strlen(verizon_cops));
+			}
+			else if(strstr(currCOPS, verizon_cops) != NULL)
+			{
+				changeCOPS(iconnect_cops, strlen(iconnect_cops));
+			}
+			else
+			{
+				// leave COPS
+			}
 		}
 
 		else
 		{
 			printk("Information not recorded!\n");
 			//Set tower read fail pin high
+			//set the value of COPS
+			//really lazy implementation but it works for the area
+			if(strstr(currCOPS, att_mobility_cops) != NULL)
+			{
+				changeCOPS(iconnect_cops, strlen(iconnect_cops));
+			}
+			else if (strstr(currCOPS, t_mobile_cops) != NULL)
+			{
+				changeCOPS(firstnet_cops, strlen(firstnet_cops));
+			}
+			else if(strstr(currCOPS, firstnet_cops) != NULL)
+			{
+				changeCOPS(att_mobility_cops, strlen(att_mobility_cops));
+			}
+			else if(strstr(currCOPS, iconnect_cops) != NULL)
+			{
+				changeCOPS(verizon_cops, strlen(verizon_cops));
+			}
+			else if(strstr(currCOPS, verizon_cops) != NULL)
+			{
+				changeCOPS(t_mobile_cops, strlen(t_mobile_cops));
+			}
+			else
+			{
+				// leave COPS
+			}
 			Tower_Read_Fail_Change();
 		}
 	}
@@ -1494,9 +1601,9 @@ static void print_cell_data(void)
 
 	
 
-	//set the value of COPS
-	//really lazy implementation but it works for the area
+		
 
+	/*
 	//check if 1st tower is t-mobile
 	if(strstr(t1COPS, t_mobile_cops) != NULL)
 	{
@@ -1551,6 +1658,7 @@ static void print_cell_data(void)
 	{
 		changeCOPS(t_mobile_cops, strlen(t_mobile_cops));
 	}
+	*/
 }
 
 //get the time from the towers
@@ -1594,6 +1702,49 @@ void getTime(void)
 
 		strcpy(time,data);	
 		printk("Time: %s", time);
+
+    //printk("Modem response:\n%s", response);
+}
+
+void getMultipleTowers(void)
+{
+	int err;
+    char response[800];
+	strcpy(response, " ");
+	//clock command
+	err = nrf_modem_at_cmd(response, sizeof(response), "AT%%NCELLMEAS=3,4");
+    if (err) 
+	{
+        //error
+    }
+
+	printk("rep: %s", response);
+
+	int dataSize = 800;
+	char data[dataSize];
+	strcpy(data,response);
+	int data_length = strlen(data);
+
+	int loop;
+	for(loop = 0; loop < data_length; loop++)
+	{
+	
+		//only want A-Z, a-z, 0-9, and newline characters
+		if( (data[loop] >= 'a' && data[loop] <= 'z') 
+		||  (data[loop] >= 'A' && data[loop] <= 'Z') 
+		||  (data[loop] >= '0' && data[loop] <= '9')
+		||  (data[loop] == '\n') ||  (data[loop] == '/') 
+		||  (data[loop] == ':') || (data[loop] == '+'))
+		{
+			//printk("%c", data[loop]);
+		}
+		//set all other characters to underscore
+		else
+		{
+			data[loop] = '_';
+		}
+	}
+	printk("Towers: %s", data);
 
     //printk("Modem response:\n%s", response);
 }
@@ -1697,6 +1848,8 @@ void button1(void)
 	getTime();
 
 	getBand();
+
+	//getMultipleTowers();
 
 	//readCOPS();
 	//testCOPS();
