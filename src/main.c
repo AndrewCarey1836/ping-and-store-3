@@ -1229,6 +1229,14 @@ static int lte_connect(void)
 		LOG_ERR("Failed to request RAI, error: %d", err);
 	} 
 
+	//prefer LTE over NB-IoT
+	//err = lte_lc_system_mode_set(LTE_LC_SYSTEM_MODE_LTEM_NBIOT,LTE_LC_SYSTEM_MODE_PREFER_NBIOT_PLMN_PRIO);
+	err = lte_lc_system_mode_set(LTE_LC_SYSTEM_MODE_LTEM_NBIOT,LTE_LC_SYSTEM_MODE_PREFER_LTEM_PLMN_PRIO);
+	if (err)
+	{
+		LOG_ERR("Failed to set systemmode, error: %d", err);
+	}
+
 	err = lte_lc_init_and_connect_async(lte_handler);
 	if (err) {
 		LOG_ERR("Modem could not be configured, error: %d",
@@ -1709,10 +1717,10 @@ void setSystemMode(void)
     char response[64];
 
 	//clock command
-	err = nrf_modem_at_cmd(response, sizeof(response), "AT%%XSYSTEMMODE=1,1,0,2");
+	err = nrf_modem_at_cmd(response, sizeof(response), "AT%%XSYSTEMMODE=0,1,0,2");
     if (err) 
 	{
-        //error
+        printk("Could not set system mode\n");
     }
 
     //printk("Modem response:\n%s", response);
@@ -2172,10 +2180,12 @@ static void button_handler(uint32_t button_states, uint32_t has_changed)
 
 void main(void)
 {
+	//setSystemMode();
+
 	//initialize storage	
 	storage();
 
-	setSystemMode();
+	
 
 	//uses the leds as signals to the pico
 	//not implemented
