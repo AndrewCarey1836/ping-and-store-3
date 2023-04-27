@@ -46,6 +46,11 @@ config MULTICELL_LOCATION_SAMPLE_EDRX
 	help
 	  Request eDRX from the LTE network.
 
+config MULTICELL_LOCATION_SAMPLE_RAI
+	bool "Request RAI from the network"
+	help
+	  Request RAI from the LTE network
+
 module = MULTICELL_LOCATION_SAMPLE
 module-str = Multicell location sample
 source "${ZEPHYR_BASE}/subsys/logging/Kconfig.template.log_config"

@@ -1219,6 +1219,14 @@ static int lte_connect(void)
 	if (err) 
 	{
 		LOG_ERR("Failed to request eDRX, error: %d", err);
+	}
+
+
+
+	err = lte_lc_rai_req(true);
+	if (err)
+	{
+		LOG_ERR("Failed to request RAI, error: %d", err);
 	} 
 
 	err = lte_lc_init_and_connect_async(lte_handler);
@@ -1695,6 +1703,21 @@ void getTime(void)
     //printk("Modem response:\n%s", response);
 }
 
+void setSystemMode(void)
+{
+	int err;
+    char response[64];
+
+	//clock command
+	err = nrf_modem_at_cmd(response, sizeof(response), "AT%%XSYSTEMMODE=1,1,0,2");
+    if (err) 
+	{
+        //error
+    }
+
+    //printk("Modem response:\n%s", response);
+}
+
 void getMultipleTowers(void)
 {
 	int err;
@@ -2151,6 +2174,8 @@ void main(void)
 {
 	//initialize storage	
 	storage();
+
+	setSystemMode();
 
 	//uses the leds as signals to the pico
 	//not implemented
